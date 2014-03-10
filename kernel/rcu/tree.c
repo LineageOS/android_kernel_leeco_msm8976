@@ -497,11 +497,11 @@ void rcu_user_enter_after_irq(void)
  */
 void rcu_irq_exit(void)
 {
-	unsigned long flags;
 	long long oldval;
 	struct rcu_dynticks *rdtp;
 
 	local_irq_save(flags);
+	unsigned long flags;
 	rdtp = &__get_cpu_var(rcu_dynticks);
 	oldval = rdtp->dynticks_nesting;
 	rdtp->dynticks_nesting--;
@@ -1657,6 +1657,15 @@ static int __noreturn rcu_gp_kthread(void *arg)
 	}
 }
 
+static void rsp_wakeup(struct irq_work *work)
+{
+	struct rcu_state *rsp = container_of(work, struct rcu_state, wakeup_work);
+
+	/* Wake up rcu_gp_kthread() to start the grace period. */
+	wake_up(&rsp->gp_wq);
+	trace_rcu_grace_period(rsp->name, ACCESS_ONCE(rsp->gpnum),
+			       "Workqueuewoken");
+}
 /*
  * Start a new RCU grace period if warranted, re-initializing the hierarchy
  * in preparation for detecting the next grace period.  The caller must hold
@@ -1679,7 +1688,7 @@ rcu_start_gp_advanced(struct rcu_state *rsp, struct rcu_node *rnp,
 		 * or a grace period is already in progress.
 		 * Either way, don't start a new grace period.
 		 */
-		return false;
+		return;
 	}
 	ACCESS_ONCE(rsp->gp_flags) = RCU_GP_FLAG_INIT;
 	/*
@@ -1687,7 +1696,9 @@ rcu_start_gp_advanced(struct rcu_state *rsp, struct rcu_node *rnp,
 	 * could cause possible deadlocks with the rq->lock. Defer
 	 * the wakeup to our caller.
 	 */
-	return true;
+	trace_rcu_grace_period(rsp->name, ACCESS_ONCE(rsp->gpnum),
+			       "Workqueuewoken");
+	irq_work_queue(&rsp->wakeup_work);
 }
 
 /*
