@@ -1881,6 +1881,7 @@ __setup("riohdid=", rio_hdid_setup);
 int rio_register_mport(struct rio_mport *port)
 {
 	struct rio_scan_node *scan = NULL;
+	int res = 0;
 
 	if (next_portid >= RIO_MAX_MPORTS) {
 		pr_err("RIO: reached specified max number of mports\n");
@@ -1890,6 +1891,16 @@ int rio_register_mport(struct rio_mport *port)
 	port->id = next_portid++;
 	port->host_deviceid = rio_get_hdid(port->id);
 	port->nscan = NULL;
+
+	dev_set_name(&port->dev, "rapidio%d", port->id);
+	port->dev.class = &rio_mport_class;
+
+	res = device_register(&port->dev);
+	if (res)
+		dev_err(&port->dev, "RIO: mport%d registration failed ERR=%d\n",
+			port->id, res);
+	else
+		dev_dbg(&port->dev, "RIO: mport%d registered\n", port->id);
 
 	mutex_lock(&rio_mport_list_lock);
 	list_add_tail(&port->node, &rio_mports);
