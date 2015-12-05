@@ -914,11 +914,9 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 		buf_info->state = MSM_ISP_BUFFER_STATE_DISPATCHED;
 		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 		if (MSM_ISP_BUFFER_SRC_HAL == BUF_SRC(bufq->stream_id)) {
-			buf_info->vb2_buf->v4l2_buf.timestamp = *tv;
-			buf_info->vb2_buf->v4l2_buf.sequence  = frame_id;
-			buf_info->vb2_buf->v4l2_buf.reserved  = output_format;
 			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf,
-				bufq->session_id, bufq->stream_id);
+				bufq->session_id, bufq->stream_id,
+				frame_id, tv, output_format);
 		} else {
 			pr_err("%s: Error wrong buf done %d\n", __func__,
 				state);
