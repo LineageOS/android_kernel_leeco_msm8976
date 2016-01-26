@@ -52,9 +52,6 @@ static int get_cal_path(int path_type);
 #define EC_PORT_ID_TERTIARY_MI2S_TX   3
 #define EC_PORT_ID_QUATERNARY_MI2S_TX 4
 #define EC_PORT_ID_SLIMBUS_1_TX       5
-#ifdef CONFIG_SND_SOC_LEECO
-#define EC_PORT_ID_QUINARY_MI2S_TX       6
-#endif
 
 static struct mutex routing_lock;
 
@@ -1619,7 +1616,7 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 #ifdef CONFIG_SND_SOC_LEECO
 	case 11:
 		msm_route_ec_ref_rx = 11;
-		ec_ref_port_id = AFE_PORT_ID_QUINARY_MI2S_TX;
+		ec_ref_port_id = AFE_PORT_ID_QUINARY_MI2S_RX;
 		break;
 #endif
 	default:
@@ -1641,7 +1638,7 @@ static const char *const ec_ref_rx[] = { "None", "SLIM_RX", "I2S_RX",
 	"PRI_MI2S_TX", "SEC_MI2S_TX",
 	"TERT_MI2S_TX", "QUAT_MI2S_TX", "SEC_I2S_RX", "PROXY_RX",
 #ifdef CONFIG_SND_SOC_LEECO
-	"SLIM_5_RX", "SLIM_1_TX", "QUIN_MI2S_TX"};
+	"SLIM_5_RX", "SLIM_1_TX", "QUIN_MI2S_RX"};
 #else
 	"SLIM_5_RX", "SLIM_1_TX"};
 #endif
@@ -1740,12 +1737,6 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 		msm_route_ext_ec_ref = SLIMBUS_1_TX;
 		state = true;
 		break;
-#ifdef CONFIG_SND_SOC_LEECO
-	case EC_PORT_ID_QUINARY_MI2S_TX:
-		msm_route_ext_ec_ref = AFE_PORT_ID_QUINARY_MI2S_TX;
-		state = true;
-		break;
-#endif
 	default:
 		msm_route_ext_ec_ref = AFE_PORT_INVALID;
 		break;
@@ -1762,15 +1753,11 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 
 static const char * const ext_ec_ref_rx[] = {"NONE", "PRI_MI2S_TX",
 					     "SEC_MI2S_TX", "TERT_MI2S_TX",
-#ifdef CONFIG_SND_SOC_LEECO
-					     "QUAT_MI2S_TX", "SLIM_1_TX", "QUIN_MI2S_TX"};
-#else
 					     "QUAT_MI2S_TX", "SLIM_1_TX"};
-#endif
 
 static const struct soc_enum msm_route_ext_ec_ref_rx_enum[] = {
 #ifdef CONFIG_SND_SOC_LEECO
-	SOC_ENUM_SINGLE_EXT(7, ext_ec_ref_rx),
+	SOC_ENUM_SINGLE_EXT(5, ext_ec_ref_rx),
 #else
 	SOC_ENUM_SINGLE_EXT(6, ext_ec_ref_rx),
 #endif
