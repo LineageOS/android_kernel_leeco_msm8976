@@ -109,21 +109,18 @@ struct msm_vidc_s3d_frame_packing_payload {
 	unsigned int fpa_extension_flag;
 };
 
-struct msm_vidc_vui_display_info_payload {
-	unsigned int video_signal_present_flag;
-	unsigned int video_format;
-	unsigned int bit_depth_y;
-	unsigned int bit_depth_c;
-	unsigned int video_full_range_flag;
-	unsigned int color_description_present_flag;
-	unsigned int color_primaries;
-	unsigned int transfer_characteristics;
-	unsigned int matrix_coefficients;
-	unsigned int chroma_location_info_present_flag;
-	unsigned int chroma_format_idc;
-	unsigned int separate_color_plane_flag;
-	unsigned int chroma_sample_loc_type_top_field;
-	unsigned int chroma_sample_loc_type_bottom_field;
+struct msm_vidc_mastering_display_colour_sei_payload {
+	unsigned int nDisplayPrimariesX[3];
+	unsigned int nDisplayPrimariesY[3];
+	unsigned int nWhitePointX;
+	unsigned int nWhitePointY;
+	unsigned int nMaxDisplayMasteringLuminance;
+	unsigned int nMinDisplayMasteringLuminance;
+};
+
+struct msm_vidc_content_light_level_sei_payload {
+	unsigned int nMaxContentLight;
+	unsigned int nMaxPicAverageLight;
 };
 
 enum msm_vidc_extradata_type {
@@ -141,6 +138,12 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_STREAM_USERDATA = 0x0000000E,
 	MSM_VIDC_EXTRADATA_FRAME_QP = 0x0000000F,
 	MSM_VIDC_EXTRADATA_FRAME_BITS_INFO = 0x00000010,
+#define MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI \
+	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI
+	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI = 0x00000015,
+#define MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI \
+	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI
+	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI = 0x00000016,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
 	MSM_VIDC_EXTRADATA_DIGITAL_ZOOM = 0x07000010,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,
