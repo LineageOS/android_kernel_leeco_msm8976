@@ -27,6 +27,7 @@
 static int msm_isp_update_dual_HW_ms_info_at_start(
 	struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src stream_src);
+
 static void msm_isp_update_dual_HW_axi(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
@@ -34,6 +35,7 @@ static void msm_isp_update_dual_HW_axi(
 static void  msm_isp_update_dual_HW_stream_state(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
+
 int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
@@ -600,7 +602,7 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 	int i;
 
 	if (!vfe_dev || !sof_info) {
-		pr_err("%s %d failed: vfe_dev %p sof_info %p\n", __func__,
+		pr_err("%s %d failed: vfe_dev %pK sof_info %pK\n", __func__,
 			__LINE__, vfe_dev, sof_info);
 		return;
 	}
@@ -1115,6 +1117,7 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 
 	return rc;
 }
+
 static int msm_isp_axi_stream_enable_cfg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info,
@@ -1149,7 +1152,7 @@ static int msm_isp_axi_stream_enable_cfg(
 				!dual_vfe_res->axi_data[ISP_VFE0] ||
 				!dual_vfe_res->vfe_base[ISP_VFE1] ||
 				!dual_vfe_res->axi_data[ISP_VFE1]) {
-				pr_err("%s:%d failed vfe0 %p %p vfe %p %p\n",
+				pr_err("%s:%d failed vfe0 %pK %pK vfe %pK %pK\n",
 					__func__, __LINE__,
 					dual_vfe_res->vfe_base[ISP_VFE0],
 					dual_vfe_res->axi_data[ISP_VFE0],
@@ -1254,6 +1257,7 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev,
 	if (vfe_dev->axi_data.stream_update[frame_src] == 0)
 		complete(&vfe_dev->stream_config_complete);
 }
+
 static void msm_isp_reload_ping_pong_offset(struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info)
 {
@@ -1273,6 +1277,7 @@ static void msm_isp_reload_ping_pong_offset(struct vfe_device *vfe_dev,
 		}
 	}
 }
+
 void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src)
 {
@@ -1320,6 +1325,7 @@ void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 		update_state = atomic_dec_return(
 			&axi_data->axi_cfg_update[frame_src]);
 }
+
 static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint32_t pingpong_status,
 	struct msm_isp_buffer **done_buf)
@@ -1540,7 +1546,7 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 				!dual_vfe_res->axi_data[ISP_VFE0] ||
 				!dual_vfe_res->vfe_base[ISP_VFE1] ||
 				!dual_vfe_res->axi_data[ISP_VFE1]) {
-				pr_err("%s:%d failed vfe0 %p %p vfe %p %p\n",
+				pr_err("%s:%d failed vfe0 %pK %pK vfe %pK %pK\n",
 					__func__, __LINE__,
 					dual_vfe_res->vfe_base[ISP_VFE0],
 					dual_vfe_res->axi_data[ISP_VFE0],
@@ -1797,7 +1803,7 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 	struct msm_isp_bufq *bufq = NULL;
 
 	if (!vfe_dev || !stream_info || !ts || !sof_info) {
-		pr_err("%s %d  vfe_dev %p stream_info %p ts %p op_info %p\n",
+		pr_err("%s %d  vfe_dev %pK stream_info %pK ts %pK op_info %pK\n",
 			 __func__, __LINE__, vfe_dev, stream_info, ts,
 			sof_info);
 		return -EINVAL;
@@ -2129,7 +2135,7 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 	uint32_t bufq_handle = 0, bufq_id = 0;
 
 	if (!reset_cmd) {
-		pr_err("%s: NULL pointer reset cmd %p\n", __func__, reset_cmd);
+		pr_err("%s: NULL pointer reset cmd %pK\n", __func__, reset_cmd);
 		rc = -1;
 		return rc;
 	}
@@ -2159,7 +2165,7 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 			bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
 				bufq_handle);
 			if (!bufq) {
-				pr_err("%s: bufq null %p by handle %x\n",
+				pr_err("%s: bufq null %pK by handle %x\n",
 					__func__, bufq, bufq_handle);
 				continue;
 			}
@@ -2383,6 +2389,7 @@ static int msm_isp_update_dual_HW_ms_info_at_stop(
 
 	return rc;
 }
+
 static void msm_isp_update_dual_HW_axi(struct vfe_device *vfe_dev,
 			struct msm_vfe_axi_stream *stream_info)
 {
@@ -2792,6 +2799,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 	return rc;
 }
 
+
 int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0, ret;
@@ -2856,7 +2864,7 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 	struct msm_isp_timestamp timestamp;
 
 	if (!vfe_dev || !stream_info) {
-		pr_err("%s %d failed: vfe_dev %p stream_info %p\n", __func__,
+		pr_err("%s %d failed: vfe_dev %pK stream_info %pK\n", __func__,
 			__LINE__, vfe_dev, stream_info);
 		return -EINVAL;
 	}
@@ -2927,7 +2935,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	uint32_t vfe_id = 0;
 
 	if (!vfe_dev || !stream_info) {
-		pr_err("%s %d failed: vfe_dev %p stream_info %p\n", __func__,
+		pr_err("%s %d failed: vfe_dev %pK stream_info %pK\n", __func__,
 			__LINE__, vfe_dev, stream_info);
 		return -EINVAL;
 	}
@@ -3104,6 +3112,7 @@ static void msm_isp_remove_buf_queue(struct vfe_device *vfe_dev,
 	spin_unlock_irqrestore(&stream_info->lock, flags);
 
 }
+
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0, i, j;
@@ -3267,6 +3276,7 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 	return rc;
 }
+
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
@@ -3410,7 +3420,7 @@ void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev)
 	int i, j;
 
 	if (!vfe_dev || !axi_data) {
-		pr_err("%s: error %p %p\n", __func__, vfe_dev, axi_data);
+		pr_err("%s: error %pK %pK\n", __func__, vfe_dev, axi_data);
 		return;
 	}
 
