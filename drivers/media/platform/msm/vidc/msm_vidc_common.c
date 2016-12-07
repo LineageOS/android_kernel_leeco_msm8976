@@ -3213,6 +3213,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 		if (!entry) {
 			dprintk(VIDC_ERR, "Out of memory\n");
+			rc = -ENOMEM;
 			goto err_no_mem;
 		}
 		entry->vb = vb;

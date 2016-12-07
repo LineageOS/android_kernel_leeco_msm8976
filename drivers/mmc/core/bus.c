@@ -478,4 +478,3 @@ void mmc_remove_card(struct mmc_card *card)
 
 	put_device(&card->dev);
 }
-

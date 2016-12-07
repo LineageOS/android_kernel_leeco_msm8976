@@ -1112,7 +1112,7 @@ static void hfi_process_session_prop_info(msm_vidc_callback callback,
 {
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
 	struct hfi_profile_level profile_level = {0};
-	struct buffer_requirements buff_req;
+	struct buffer_requirements buff_req = { { {0} } };
 
 	memset(&buff_req, 0, sizeof(struct buffer_requirements));
 	dprintk(VIDC_DBG, "Received SESSION_PROPERTY_INFO[%pK]\n", session);
