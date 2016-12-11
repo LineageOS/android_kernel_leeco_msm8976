@@ -1832,4 +1832,11 @@ config ASN1
 	  inform it as to what tags are to be expected in a stream and what
 	  functions to call on what tags.
 
+config LAST_KMSG_LETV
+	default n
+	bool "enable simplely support of last_kmsg."
+	help
+	Last_kmsg is a debug feature. Now the feature is implemented by pstore.
+	But it could not be enabled until now. write a simple one for temp use.
+
 source "kernel/Kconfig.locks"

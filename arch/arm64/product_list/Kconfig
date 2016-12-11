@@ -1,0 +1,8 @@
+#Date			Author			Why					jira
+#========================================================
+#==========QL1530 CONFIG BEGIN===========================
+config PRODUCT_S2
+	depends on ARCH_MSM8916
+	bool "PRODUCT_S2 Support"
+	help
+	  Fix version type as PRODUCT_S2

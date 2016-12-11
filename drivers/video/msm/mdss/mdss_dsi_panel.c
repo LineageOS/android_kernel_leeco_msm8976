@@ -28,7 +28,11 @@
 #define DT_CMD_HDR 6
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
-
+#ifdef CONFIG_GET_HARDWARE_INFO
+#include <asm/hardware_info.h>
+char tmp_panel_name[100];
+#endif
+int lcd_resume_flag =0 ;
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #define CEIL(x, y)	(((x) + ((y)-1)) / (y))
@@ -179,13 +183,27 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
-
+#if 1
+static char led_pwm1[3] = {0x51, 0x0F,0xFF};	/* DTYPE_DCS_WRITE1 */
+static char led_diming_mode[2] = {0x53, 0x2c};	/* DTYPE_DCS_WRITE1 */
+static char led_cabc_mode[2] = {0x55, 0x03};
+static struct dsi_cmd_desc backlight_cmd[] = {
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_diming_mode)},led_diming_mode},
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_cabc_mode)},led_cabc_mode},
+	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm1)},led_pwm1},
+};
+static struct dsi_cmd_desc  diming_enable_cmd = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_diming_mode)},led_diming_mode
+};
+#else
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc backlight_cmd = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
 	led_pwm1
 };
-
+#endif
+char currtask_name[FIELD_SIZEOF(struct task_struct, comm) + 1];
+static u32 kernel_level_first = 1;
 static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
 	struct dcs_cmd_req cmdreq;
@@ -198,11 +216,63 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	}
 
 	pr_debug("%s: level=%d\n", __func__, level);
-
-	led_pwm1[1] = (unsigned char)level;
+	//diming control
+	if((strcmp(get_task_comm(currtask_name, current), "sh")==0)||(lcd_resume_flag==1))
+		led_diming_mode[1] = 0x24;
+	else
+		led_diming_mode[1] = 0x2c;
+	//cabc control
+	if(level<64)
+		led_cabc_mode[1] = 0x00;
+	else
+		led_cabc_mode[1] = 0x03;
+	//min-level control
+	if(level<32&&level>0)
+		level = 32;
+	if(pinfo->panel_supply_order==LCD_PANEL_SUPPLY_SECOND){
+		led_pwm1[1] = (unsigned char)(level>>4);
+		led_pwm1[2] = 0;
+		if(lcd_resume_flag!=1)
+			mdelay(40);
+	}else{
+		led_pwm1[1] = (unsigned char)(level>>8);
+		led_pwm1[2] = (unsigned char)level&0x0FF;
+	}
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
-	cmdreq.cmds = &backlight_cmd;
+	cmdreq.cmds = backlight_cmd;
+	cmdreq.cmds_cnt = 3;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	if((lcd_resume_flag==1)&&(kernel_level_first==0)){
+		led_trigger_event(bl_led_trigger, 4095);
+	}
+	if(level==0){
+		led_trigger_event(bl_led_trigger, 0);
+	}
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+static void  oem_dimming_enable(struct mdss_dsi_ctrl_pdata *ctrl,bool enable)
+{
+	struct dcs_cmd_req cmdreq;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &(ctrl->panel_data.panel_info);
+	if (pinfo->dcs_cmd_by_left) {
+		if (ctrl->ndx != DSI_CTRL_LEFT)
+			return;
+	}
+
+	pr_debug("%s: lcd dimming enable %d\n", __func__, enable);
+
+	if(enable)
+		led_diming_mode[1] = 0x2c;
+	else
+		led_diming_mode[1] = 0x24;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &diming_enable_cmd;
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
@@ -611,13 +681,12 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 
 	return;
 }
-
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
-
+	static u32 old_bl_level = 0;
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -631,9 +700,19 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	 * for the backlight brightness. If the brightness is less
 	 * than it, the controller can malfunction.
 	 */
+	if (bl_level == old_bl_level)
+		return;
 
 	if ((bl_level < pdata->panel_info.bl_min) && (bl_level != 0))
 		bl_level = pdata->panel_info.bl_min;
+
+	if(0==old_bl_level && bl_level > old_bl_level ){
+		lcd_resume_flag = 1;
+		pr_info("%s:bl_level = %d\n",__func__,bl_level);
+		mdelay(40);
+	}else{
+		lcd_resume_flag = 0;
+	}
 
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
@@ -671,14 +750,23 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			__func__);
 		break;
 	}
+	if(lcd_resume_flag==1){
+		mdelay(50);
+		oem_dimming_enable(ctrl_pdata,true);
+		if(kernel_level_first==1){
+			led_trigger_event(bl_led_trigger, 4095);
+			kernel_level_first = 0;
+		}
+	}
+      old_bl_level = bl_level;
 }
-
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
 	struct dsi_panel_cmds *on_cmds;
 	int ret = 0;
+	pr_info("%s:enter\n", __func__);
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -710,7 +798,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (ctrl->ds_registered)
 		mdss_dba_utils_video_on(pinfo->dba_data, pinfo);
 end:
-	pr_debug("%s:-\n", __func__);
+	pr_info("%s:exit\n", __func__);
 	return ret;
 }
 
@@ -762,6 +850,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
+	pr_info("%s:enter\n", __func__);
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -774,11 +863,13 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
+	mdss_dsi_panel_bklt_dcs(ctrl,0);
+
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
 			goto end;
 	}
-
+	synaptics_rmi4_int_enable(rmi4_data_truly,false);
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 
@@ -788,7 +879,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	}
 
 end:
-	pr_debug("%s:-\n", __func__);
+	pr_info("%s:exit\n", __func__);
 	return 0;
 }
 
@@ -1842,6 +1933,10 @@ int mdss_panel_parse_bl_settings(struct device_node *np,
 								 __func__);
 			}
 		} else if (!strcmp(data, "bl_ctrl_dcs")) {
+			led_trigger_register_simple("bkl-trigger",
+				&bl_led_trigger);
+			pr_debug("%s: SUCCESS-> WLED TRIGGER register\n",
+				__func__);
 			ctrl_pdata->bklt_ctrl = BL_DCS_CMD;
 			pr_debug("%s: Configured DCS_CMD bklt ctrl\n",
 								__func__);
@@ -1852,7 +1947,7 @@ int mdss_panel_parse_bl_settings(struct device_node *np,
 
 void mdss_dsi_unregister_bl_settings(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	if (ctrl_pdata->bklt_ctrl == BL_WLED)
+	if (ctrl_pdata->bklt_ctrl == BL_WLED||ctrl_pdata->bklt_ctrl == BL_DCS_CMD)
 		led_trigger_unregister_simple(bl_led_trigger);
 }
 
@@ -1879,6 +1974,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		return -EINVAL;
 	}
 	pinfo->yres = (!rc ? tmp : 480);
+	rc = of_property_read_u32(np,
+		"qcom,mdss-dsi-panel-supply", &tmp);
+	pinfo->panel_supply_order = (!rc ? tmp : 0);
 
 	rc = of_property_read_u32(np,
 		"qcom,mdss-pan-physical-width-dimension", &tmp);
@@ -2191,6 +2289,10 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+#if defined(CONFIG_GET_HARDWARE_INFO)
+	strlcpy(tmp_panel_name, panel_name,100);
+	register_hardware_info(LCM, tmp_panel_name);
+#endif
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);

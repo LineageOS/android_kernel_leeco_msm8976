@@ -62,7 +62,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x85E00000 0x0 0x0A00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 			label = "other_ext_mem";
 		};
 
@@ -105,14 +105,12 @@
 			linux,reserve-contiguous-region;
 			reg = <0x0 0x0 0x0 0x314000>;
 		};
-
-		cont_splash_mem: splash_region@83000000 {
+		cont_splash_mem: splash_region@82000000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
-			reg = <0x0 0x83000000 0x0 0x2800000>;
+			reg = <0x0 0x82000000 0x0 0x2800000>;
 			label = "cont_splash_mem";
 		};
-
 		adsp_mem: adsp_region@0 {
 			linux,reserve-contiguous-region;
 			reg = <0x0 0x0 0x0 0x400000>;
@@ -1070,7 +1068,15 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
 		       <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 	};
-
+blsp1_uart1: serial@78af000 {
+	compatible = "qcom,msm-lsuart-v14";
+	reg = <0x78af000 0x200>;
+	interrupts = <0 107 0>;
+	//status = " ok "; //Status OK enables it
+	clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+	<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+	clock-names = "core_clk", "iface_clk";
+};
 	blsp1_uart0: uart@78af000 {
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x78af000 0x200>,
@@ -1480,8 +1486,10 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		/* qcom,bark-time = <11000>; */
+		/* qcom,pet-time = <10000>; */
+		qcom,bark-time = <25000>;
+		qcom,pet-time = <20000>;
 		qcom,ipi-ping;
 	};
 
@@ -1587,9 +1595,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85e00000 {
+	qcom_seecom: qseecom@84A00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85e00000 0x500000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1614,7 +1622,6 @@
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
-
 	qcom,ipc_router {
 		compatible = "qcom,ipc_router";
 		qcom,node-id = <1>;

@@ -1122,4 +1122,9 @@ config RMNET_SDIO_SMD_DATA_CHANNEL
        help
 	  Data SMD channel for transferring network data
 
+config USB_NOTIFY_AND_DIAG_SWITCH
+	boolean "usb event notify"
+	depends on USB_GADGET
+	help
+	   mass storage insert notify.
 endif # USB_GADGET

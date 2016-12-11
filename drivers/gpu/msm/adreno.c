@@ -21,6 +21,7 @@
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
+#include <linux/panic_reason.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -630,6 +631,7 @@ void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
+	set_panic_trig_rsn(TRIG_GPU_HANG);
 	KGSL_DRV_CRIT(device, "MISC: GPU hang detected\n");
 	adreno_irqctrl(adreno_dev, 0);
 

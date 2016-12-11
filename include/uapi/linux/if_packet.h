@@ -93,6 +93,7 @@ struct tpacket_auxdata {
 #define TP_STATUS_CSUMNOTREADY	(1 << 3)
 #define TP_STATUS_VLAN_VALID	(1 << 4) /* auxdata has valid tp_vlan_tci */
 #define TP_STATUS_BLK_TMO	(1 << 5)
+#define TP_STATUS_CSUM_UNNECESSARY     (1 << 7)
 
 /* Tx ring - header status */
 #define TP_STATUS_AVAILABLE	      0

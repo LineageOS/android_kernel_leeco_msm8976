@@ -91,7 +91,10 @@ config GPIO_DA9052
 	depends on PMIC_DA9052
 	help
 	  Say yes here to enable the GPIO driver for the DA9052 chip.
-
+config INFRARED_MAXQ656
+	tristate "Dialog MAXQ656 GPIO"
+	help
+	  Say yes here to enable the GPIO driver for the MAXQ656 chip.
 config GPIO_DA9055
 	tristate "Dialog Semiconductor DA9055 GPIO"
 	depends on MFD_DA9055

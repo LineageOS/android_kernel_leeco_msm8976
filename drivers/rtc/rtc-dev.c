@@ -268,6 +268,7 @@ static long rtc_dev_ioctl(struct file *file,
 
 	switch (cmd) {
 	case RTC_ALM_READ:
+         printk("%s() RTC_ALM_READ\n",__func__);
 		mutex_unlock(&rtc->ops_lock);
 
 		err = rtc_read_alarm(rtc, &alarm);
@@ -279,6 +280,7 @@ static long rtc_dev_ioctl(struct file *file,
 		return err;
 
 	case RTC_ALM_SET:
+         printk("%s() RTC_ALM_SET\n",__func__);
 		mutex_unlock(&rtc->ops_lock);
 
 		if (copy_from_user(&alarm.time, uarg, sizeof(tm)))

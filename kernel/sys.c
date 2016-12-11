@@ -58,6 +58,8 @@
 #include <linux/cred.h>
 
 #include <linux/kmsg_dump.h>
+#include <linux/panic_reason.h>
+#include <linux/panic_reason.h>
 /* Move somewhere else to avoid recompiling? */
 #include <generated/utsrelease.h>
 
@@ -398,6 +400,7 @@ static void migrate_to_reboot_cpu(void)
  */
 void kernel_restart(char *cmd)
 {
+	set_panic_trig_rsn(TRIG_CMD_REBOOT);
 	kernel_restart_prepare(cmd);
 	migrate_to_reboot_cpu();
 	syscore_shutdown();
@@ -442,6 +445,7 @@ EXPORT_SYMBOL_GPL(kernel_halt);
  */
 void kernel_power_off(void)
 {
+	set_panic_trig_rsn(TRIG_CMD_REBOOT);
 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
 	if (pm_power_off_prepare)
 		pm_power_off_prepare();

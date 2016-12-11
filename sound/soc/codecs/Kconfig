@@ -578,3 +578,15 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 	help
 	HDMI audio drivers should be built only if the platform
         supports hdmi panel.
+
+config SND_SOC_SMART_PA_TFA9890
+	tristate "SMARTPA TFA9890 AUDIO"
+	depends on I2C
+	help
+	  Say Y here if you have the  TFA9890 SMARTPA controller
+	  chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called  TFA9890 Smart pa

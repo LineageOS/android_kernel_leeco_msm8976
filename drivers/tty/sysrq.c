@@ -44,7 +44,7 @@
 #include <linux/uaccess.h>
 #include <linux/moduleparam.h>
 #include <linux/jiffies.h>
-
+#include <linux/panic_reason.h>
 #include <asm/ptrace.h>
 #include <asm/irq_regs.h>
 
@@ -133,6 +133,7 @@ static void sysrq_handle_crash(int key)
 {
 	char *killer = NULL;
 
+	set_panic_trig_rsn(TRIG_SYSRQ_CRASH);
 	panic_on_oops = 1;	/* force panic */
 	wmb();
 	*killer = 1;

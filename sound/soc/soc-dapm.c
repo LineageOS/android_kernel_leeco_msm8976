@@ -2174,9 +2174,10 @@ static int snd_soc_dapm_set_pin(struct snd_soc_dapm_context *dapm,
 				const char *pin, int status)
 {
 	struct snd_soc_dapm_widget *w = dapm_find_widget(dapm, pin, true);
-
+	mutex_lock_nested(&dapm->card->dapm_mutex, SND_SOC_DAPM_CLASS_PCM);
 	if (!w) {
 		dev_err(dapm->dev, "ASoC: DAPM unknown pin %s\n", pin);
+		mutex_unlock(&dapm->card->dapm_mutex);
 		return -EINVAL;
 	}
 
@@ -2187,6 +2188,7 @@ static int snd_soc_dapm_set_pin(struct snd_soc_dapm_context *dapm,
 	if (status == 0)
 		w->force = 0;
 
+	mutex_unlock(&dapm->card->dapm_mutex);
 	return 0;
 }
 
@@ -3059,14 +3061,10 @@ int snd_soc_dapm_put_pin_switch(struct snd_kcontrol *kcontrol,
 	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
 	const char *pin = (const char *)kcontrol->private_value;
 
-	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
-
 	if (ucontrol->value.integer.value[0])
 		snd_soc_dapm_enable_pin(&card->dapm, pin);
 	else
 		snd_soc_dapm_disable_pin(&card->dapm, pin);
-
-	mutex_unlock(&card->dapm_mutex);
 
 	snd_soc_dapm_sync(&card->dapm);
 	return 0;
@@ -3603,8 +3601,10 @@ int snd_soc_dapm_force_enable_pin(struct snd_soc_dapm_context *dapm,
 {
 	struct snd_soc_dapm_widget *w = dapm_find_widget(dapm, pin, true);
 
+	mutex_lock_nested(&dapm->card->dapm_mutex, SND_SOC_DAPM_CLASS_PCM);
 	if (!w) {
 		dev_err(dapm->dev, "ASoC: unknown pin %s\n", pin);
+		mutex_unlock(&dapm->card->dapm_mutex);
 		return -EINVAL;
 	}
 
@@ -3612,6 +3612,7 @@ int snd_soc_dapm_force_enable_pin(struct snd_soc_dapm_context *dapm,
 	w->connected = 1;
 	w->force = 1;
 	dapm_mark_dirty(w, "force enable");
+	mutex_unlock(&dapm->card->dapm_mutex);
 
 	return 0;
 }

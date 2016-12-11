@@ -34,7 +34,7 @@
 #include <linux/stacktrace.h>
 #include <linux/prefetch.h>
 #include <linux/memcontrol.h>
-
+#include <linux/panic_reason.h>
 #include <trace/events/kmem.h>
 
 #include "internal.h"
@@ -575,6 +575,7 @@ static void slab_bug(struct kmem_cache *s, char *fmt, ...)
 	va_list args;
 	char buf[100];
 
+	set_panic_trig_rsn(TRIG_SLUB_BUG);
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);

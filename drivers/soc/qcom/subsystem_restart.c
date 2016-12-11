@@ -34,6 +34,7 @@
 #include <linux/of_gpio.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
+#include <linux/panic_reason.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/socinfo.h>
@@ -47,6 +48,7 @@ static uint disable_restart_work;
 module_param(disable_restart_work, uint, S_IRUGO | S_IWUSR);
 
 static int enable_debug;
+static int subsys_restart_level= 0;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
 
 #define SHUTDOWN_ACK_MAX_LOOPS	50
@@ -234,6 +236,7 @@ static ssize_t restart_level_store(struct device *dev,
 	for (i = 0; i < ARRAY_SIZE(restart_levels); i++)
 		if (!strncasecmp(buf, restart_levels[i], count)) {
 			subsys->restart_level = i;
+			subsys_restart_level = subsys->restart_level;
 			return count;
 		}
 	return -EPERM;
@@ -980,6 +983,7 @@ int subsystem_restart_dev(struct subsys_device *dev)
 	}
 
 	name = dev->desc->name;
+	dev->restart_level = subsys_restart_level;
 
 	/*
 	 * If a system reboot/shutdown is underway, ignore subsystem errors.
@@ -1006,6 +1010,7 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:
+		set_panic_trig_rsn(TRIG_SUB_SYSTEM_RESET);
 		__pm_stay_awake(&dev->ssr_wlock);
 		schedule_work(&dev->device_restart_work);
 		return 0;

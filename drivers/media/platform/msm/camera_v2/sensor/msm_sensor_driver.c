@@ -17,6 +17,10 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include "msm_sensor_module_info.h"
+#ifdef CONFIG_GET_HARDWARE_INFO
+#include <soc/qcom/hardware_info.h>
+#endif
 
 /* Logging macro */
 #undef CDBG
@@ -661,6 +665,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 	unsigned long                        mount_pos = 0;
 	uint32_t                             is_yuv;
+	char module_info[MAX_SENSOR_NAME] = "\0";
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -732,6 +737,11 @@ int32_t msm_sensor_driver_probe(void *setting,
 			slave_info32->sensor_init_params;
 		slave_info->output_format =
 			slave_info32->output_format;
+		/*Begin added by yangyongfeng for camera hardware info and camera gpio id (ql1530) 20151221 */
+		strlcpy(slave_info->sensor_module_info, slave_info32->sensor_module_info,
+			sizeof(slave_info->sensor_module_info));
+		slave_info->sensor_gpio_id = slave_info32->sensor_gpio_id;
+		/*End added by yangyongfeng for camera hardware info and camera gpio id (ql1530) 20151221 */
 		kfree(slave_info32);
 	} else
 #endif
@@ -900,6 +910,27 @@ CSID_TG:
 	s_ctrl->sensordata->eeprom_name = slave_info->eeprom_name;
 	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
 	s_ctrl->sensordata->ois_name = slave_info->ois_name;
+	if(strlen(s_ctrl->sensordata->eeprom_name) > 0 )
+	{
+		msm_sensor_module_info_get(slave_info->camera_id, module_info);
+		if(strcmp(module_info, s_ctrl->sensordata->eeprom_name) == 0)
+		{
+			pr_err("%s: eeprom module info match succ!want:%s,get:%s\n", __func__, s_ctrl->sensordata->eeprom_name, module_info);
+		}
+		else if(strcmp(module_info, "unknown") == 0)
+		{
+			pr_err("%s: eeprom module info match fail!because don't need to match by otp!\n", __func__);
+		}
+		else
+		{
+			pr_err("%s: eeprom module info match fail!because can not match!want:%s,get:%s\n", __func__, s_ctrl->sensordata->eeprom_name, module_info);
+			goto free_camera_info;
+		}
+	}
+	else
+	{
+		pr_err("%s:eeprom module info match.This sensor have not config eeprom.", __func__);
+	}
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
 	 */
@@ -929,9 +960,34 @@ CSID_TG:
 		pr_err("%s power up failed", slave_info->sensor_name);
 		goto free_camera_info;
 	}
-
+	/*Begin added by yangyongfeng for camera hardware info and camera gpio id (ql1530) 20151221 */
+	if(slave_info->sensor_module_info){
+		pr_err("sensor_module_info %s\n", slave_info->sensor_module_info);
+		s_ctrl->sensordata->sensor_module_info = slave_info->sensor_module_info;
+	}
+	pr_err("sensor_gpio_id %d\n", slave_info->sensor_gpio_id);
+	s_ctrl->sensordata->sensor_gpio_id = slave_info->sensor_gpio_id;
+	/*End added by yangyongfeng for camera hardware info and camera gpio id (ql1530) 20151221 */ 
 	pr_err("%s probe succeeded", slave_info->sensor_name);
-
+/*Begin  added by yangyongfeng for camera sensor hardware_info (ql1530) 20151222 */
+#ifdef CONFIG_GET_HARDWARE_INFO
+	if(slave_info->sensor_init_params.position == BACK_CAMERA_B){
+		if(slave_info->sensor_module_info){
+			register_hardware_info(MAIN_CAM, slave_info->sensor_module_info);
+		}else{
+			pr_err("%s hardware info is NULL.\n",slave_info->sensor_name);
+		}
+	}else if(slave_info->sensor_init_params.position == FRONT_CAMERA_B){
+		if(slave_info->sensor_module_info){
+			register_hardware_info(SUB_CAM, slave_info->sensor_module_info);
+		}else{
+			pr_err("%s hardware info is NULL.\n",slave_info->sensor_name);
+		}
+	}else{
+		pr_err("%s register hardware info failed.\n",slave_info->sensor_name);
+	}
+#endif
+/*End  by yangyongfeng for camera sensor hardware_info (ql1530) 20151222 */
 	/*
 	  Set probe succeeded flag to 1 so that no other camera shall
 	 * probed on this slot

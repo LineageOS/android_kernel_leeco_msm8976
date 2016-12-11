@@ -297,6 +297,12 @@ struct hid_item {
 #define HID_GROUP_SENSOR_HUB			0x0003
 
 /*
+ * LincolnUSB: LECV Cool Pro specific HID device groups
+ */
+#define HID_GROUP_LETV				0x0102
+
+
+/*
  * This is the global environment of the parser. This information is
  * persistent for main-items. The global environment can be saved and
  * restored with PUSH/POP statements.
@@ -485,6 +491,10 @@ struct hid_device {							/* device report descriptor */
 
 	struct list_head inputs;					/* The list of inputs */
 	void *hiddev;							/* The hiddev structure */
+
+#ifdef CONFIG_HID_OVR
+	void *hidovr;							/* LincolnUSB */
+#endif
 	void *hidraw;
 	int minor;							/* Hiddev minor number */
 

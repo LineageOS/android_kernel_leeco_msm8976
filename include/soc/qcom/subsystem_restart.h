@@ -20,8 +20,8 @@
 struct subsys_device;
 
 enum {
-	RESET_SOC = 0,
-	RESET_SUBSYS_COUPLED,
+	RESET_SUBSYS_COUPLED = 0,
+	RESET_SOC,
 	RESET_LEVEL_MAX
 };
 

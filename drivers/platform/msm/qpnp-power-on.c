@@ -29,6 +29,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/power-on.h>
+#include <linux/panic_reason.h>
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -276,10 +277,8 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
 
 	if (!pon)
 		return 0;
-
-	if (!pon->store_hard_reset_reason)
+	if (!pon->store_hard_reset_reason  && (reason != PON_RESTART_REASON_PANIC))
 		return 0;
-
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon->base),
 					PON_MASK(7, 5), (reason << 5));
 	if (rc)
@@ -663,6 +662,7 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 
 	pr_debug("PMIC input: code=%d, sts=0x%hhx\n",
 					cfg->key_code, pon_rt_sts);
+	printk("input_report_key key_code=%d key_value=%d\n", cfg->key_code, pon_rt_sts & pon_rt_bit);
 	key_status = pon_rt_sts & pon_rt_bit;
 
 	/* simulate press event in case release event occured
@@ -695,6 +695,10 @@ static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
 
 static irqreturn_t qpnp_kpdpwr_bark_irq(int irq, void *_pon)
 {
+	struct qpnp_pon *pon = _pon;
+
+	set_panic_trig_rsn(TRIG_LONG_PRESS_PWR_KEY);
+	dev_emerg(&pon->spmi->dev, "qpnp_kpdpwr_bark_irq!\n");
 	return IRQ_HANDLED;
 }
 
@@ -711,6 +715,10 @@ static irqreturn_t qpnp_resin_irq(int irq, void *_pon)
 
 static irqreturn_t qpnp_kpdpwr_resin_bark_irq(int irq, void *_pon)
 {
+	struct qpnp_pon *pon = _pon;
+
+	set_panic_trig_rsn(TRIG_LONG_PRESS_PWR_KEY);
+	dev_emerg(&pon->spmi->dev, "qpnp_kpdpwr_resin_bark_irq!\n");
 	return IRQ_HANDLED;
 }
 
@@ -2012,3 +2020,5 @@ module_exit(qpnp_pon_exit);
 
 MODULE_DESCRIPTION("QPNP PMIC POWER-ON driver");
 MODULE_LICENSE("GPL v2");
+
+#include "qpnp-power-on_le.c"

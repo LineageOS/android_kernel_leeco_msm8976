@@ -19,9 +19,12 @@
 #include <linux/irqreturn.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/gpio.h>
-
+#include "../../../input/touchscreen/synaptics_dsx_oem/synaptics_dsx_core.h"
 #include "mdss_panel.h"
 #include "mdss_dsi_cmd.h"
+#define LCD_PANEL_SUPPLY_PRIMARY   1
+#define LCD_PANEL_SUPPLY_SECOND     2
+#define LCD_PANEL_SUPPLY_THIRD	  3
 
 #define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */
 
@@ -783,5 +786,10 @@ static inline bool mdss_dsi_cmp_panel_reg(struct dsi_buf status_buf,
 {
 	return status_buf.data[i] == status_val[i];
 }
-
+extern void synaptics_rmi4_wakeup_gesture(struct synaptics_rmi4_data *rmi4_data, bool enable);
+extern void synaptics_rmi4_sleep_enable(struct synaptics_rmi4_data *rmi4_data,bool enable);
+extern int synaptics_rmi4_int_enable(struct synaptics_rmi4_data *rmi4_data,bool enable);
+extern struct synaptics_rmi4_data *rmi4_data_truly;
+extern bool is_tp_insert;
+extern bool tp_sleep_mode;
 #endif /* MDSS_DSI_H */

@@ -342,6 +342,10 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 			alarm->time.tm_hour, alarm->time.tm_min,
 			alarm->time.tm_sec, alarm->time.tm_mday,
 			alarm->time.tm_mon, alarm->time.tm_year);
+    printk("Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+        alarm->time.tm_hour, alarm->time.tm_min,
+        alarm->time.tm_sec, alarm->time.tm_mday,
+        alarm->time.tm_mon, alarm->time.tm_year);
 rtc_rw_fail:
 	spin_unlock_irqrestore(&rtc_dd->alarm_ctrl_lock, irq_flags);
 	return rc;
@@ -376,7 +380,10 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		alarm->time.tm_hour, alarm->time.tm_min,
 				alarm->time.tm_sec, alarm->time.tm_mday,
 				alarm->time.tm_mon, alarm->time.tm_year);
-
+    printk("Alarm read for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+        alarm->time.tm_hour, alarm->time.tm_min,
+        alarm->time.tm_sec, alarm->time.tm_mday,
+        alarm->time.tm_mon, alarm->time.tm_year);
 	return 0;
 }
 

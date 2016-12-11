@@ -113,6 +113,7 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_FL_RESET,
 	SENSOR_GPIO_CUSTOM1,
 	SENSOR_GPIO_CUSTOM2,
+	SENSOR_GPIO_ID,  /* Added by yangyongfeng to check pin of cameraid value 20151221 */
 	SENSOR_GPIO_MAX,
 };
 
@@ -271,6 +272,10 @@ struct msm_camera_sensor_slave_info {
 	unsigned char  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
 	enum msm_sensor_output_format_t output_format;
+	/* Begin added by yangyongfeng for camera hardware info and camera gpio id (ql1530) 20151221 */
+	char sensor_module_info[64];
+	uint8_t sensor_gpio_id;
+	/* End added by yangyongfeng for camera hardware info and camera gpio id (ql1530) 20151221 */
 };
 
 struct msm_camera_i2c_reg_array {

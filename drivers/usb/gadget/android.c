@@ -81,6 +81,10 @@
 #include "f_ncm.c"
 #include "f_charger.c"
 #include "debug.h"
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+#include <linux/usb_notify.h>
+static int diags=0;
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -88,7 +92,7 @@ MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
 static const char longname[] = "Gadget Android";
-
+extern bool usb_enumeration_failed;
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
@@ -198,6 +202,9 @@ struct android_dev {
 	bool sw_connected;
 	bool suspended;
 	bool sw_suspended;
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+	bool open_diag;
+#endif
 	char pm_qos[5];
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned up_pm_qos_sample_sec;
@@ -309,10 +316,31 @@ static void android_pm_qos_update_latency(struct android_dev *dev, s32 latency)
 		return;
 
 	pr_debug("%s: latency updated to: %d\n", __func__, latency);
-
-	pm_qos_update_request(&dev->pm_qos_req_dma, latency);
-
-	last_vote = latency;
+	if (latency == PM_QOS_DEFAULT_VALUE) {
+		pm_qos_update_request(&dev->pm_qos_req_dma, latency);
+		last_vote = latency;
+		pm_qos_remove_request(&dev->pm_qos_req_dma);
+	} else {
+		if (!pm_qos_request_active(&dev->pm_qos_req_dma)) {
+			/*
+			 * The default request type PM_QOS_REQ_ALL_CORES is
+			 * applicable to all CPU cores that are online and
+			 * would have a power impact when there are more
+			 * number of CPUs. PM_QOS_REQ_AFFINE_IRQ request
+			 * type shall update/apply the vote only to that CPU to
+			 * which IRQ's affinity is set to.
+			 */
+#ifdef CONFIG_SMP
+			dev->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+			dev->pm_qos_req_dma.irq =
+				dev->cdev->gadget->interrupt_num;
+#endif
+			pm_qos_add_request(&dev->pm_qos_req_dma,
+				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		}
+		pm_qos_update_request(&dev->pm_qos_req_dma, latency);
+		last_vote = latency;
+	}
 }
 
 #define DOWN_PM_QOS_SAMPLE_SEC		5
@@ -395,7 +423,29 @@ enum android_device_state {
 	USB_SUSPENDED,
 	USB_RESUMED
 };
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+struct android_dev *g_android_dev;
+static int usb_ms_notifier(struct notifier_block *self,
+	unsigned long action, void *data);
+static struct notifier_block usb_ms_notif = {
+	.notifier_call = 	usb_ms_notifier,
+};
 
+static int usb_ms_notifier(struct notifier_block *self,
+	unsigned long action, void *data)
+{
+	switch (action) {
+	case USB_MS_DEVICE_ADD:
+		break;
+	case USB_MS_DEVICE_REMOVE:
+		g_android_dev->open_diag=true;
+		schedule_work(&g_android_dev->work);
+		break;
+	}
+	diags=1;
+	return NOTIFY_OK;
+}
+#endif
 static void android_work(struct work_struct *data)
 {
 	struct android_dev *dev = container_of(data, struct android_dev, work);
@@ -406,6 +456,9 @@ static void android_work(struct work_struct *data)
 	char *configured[2]   = { "USB_STATE=CONFIGURED", NULL };
 	char *suspended[2]   = { "USB_STATE=SUSPENDED", NULL };
 	char *resumed[2]   = { "USB_STATE=RESUMED", NULL };
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+	char *open_diag[2]   = { "USB_STATE=OPEN_DIAG", NULL };
+#endif
 	char **uevent_envp = NULL;
 	static enum android_device_state last_uevent, next_state;
 	unsigned long flags;
@@ -460,6 +513,15 @@ static void android_work(struct work_struct *data)
 								disconnected);
 			msleep(20);
 		}
+		usb_enumeration_failed = 0;
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+		if (dev->open_diag) {
+			dev->open_diag=false;
+			printk("send USB_STATE=OPEN_DIAG:\n");
+			kobject_uevent_env(&dev->dev->kobj, KOBJ_CHANGE,
+					open_diag);
+		}
+#endif
 		/*
 		 * Before sending out CONFIGURED uevent give function drivers
 		 * a chance to wakeup userspace threads and notify disconnect
@@ -2188,7 +2250,28 @@ static ssize_t rndis_manufacturer_store(struct device *dev,
 		return size;
 	return -1;
 }
-
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+static ssize_t diag_status_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret=diags;
+	if (ret < 0){
+		printk(KERN_ERR "%s:  read diag_status data fail. \n", __func__);
+		return sprintf(buf, "%d\n", 0xffff);
+	}
+	return sprintf(buf, "%d\n", ret);
+}
+static ssize_t diag_status_store(struct device *dev,
+	struct device_attribute *attr, const char *buf,size_t count)
+{
+	int value;
+	sscanf(buf, "%d\n", &value);
+	diags=value;
+	return count;
+}
+static DEVICE_ATTR(diag_status, 0664, diag_status_show, diag_status_store);
+#endif
 static DEVICE_ATTR(manufacturer, S_IRUGO | S_IWUSR, rndis_manufacturer_show,
 						    rndis_manufacturer_store);
 
@@ -2474,14 +2557,13 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	config->fsg.nluns = 1;
 	snprintf(name[0], MAX_LUN_NAME, "lun");
 	config->fsg.luns[0].removable = 1;
-
-	if (dev->pdata && dev->pdata->cdrom) {
+	/*if (dev->pdata && dev->pdata->cdrom) {
 		config->fsg.luns[config->fsg.nluns].cdrom = 1;
 		config->fsg.luns[config->fsg.nluns].ro = 1;
 		config->fsg.luns[config->fsg.nluns].removable = 0;
 		snprintf(name[config->fsg.nluns], MAX_LUN_NAME, "rom");
 		config->fsg.nluns++;
-	}
+	}*/
 
 	if (uicc_nluns > FSG_MAX_LUNS - config->fsg.nluns) {
 		uicc_nluns = FSG_MAX_LUNS - config->fsg.nluns;
@@ -2494,7 +2576,13 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		config->fsg.luns[n].removable = 1;
 		config->fsg.nluns++;
 	}
-
+	if (dev->pdata && dev->pdata->cdrom) {
+		config->fsg.luns[config->fsg.nluns].cdrom = 1;
+		config->fsg.luns[config->fsg.nluns].ro = 1;
+		config->fsg.luns[config->fsg.nluns].removable = 0;
+		snprintf(name[config->fsg.nluns], MAX_LUN_NAME, "rom");
+		config->fsg.nluns++;
+	}
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
 		kfree(config);
@@ -3247,6 +3335,9 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 			conf = alloc_android_config(dev);
 
 		curr_conf = curr_conf->next;
+		ums_mode = false;
+		cdrom_mode = false;
+		printk("%s:%s\n",__func__,conf_str);
 		while (conf_str) {
 			name = strsep(&conf_str, ",");
 			is_ffs = 0;
@@ -3276,7 +3367,16 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 			if (!strcmp(name, "rndis") &&
 				!strcmp(strim(rndis_transports), "BAM2BAM_IPA"))
 				name = "rndis_qc";
-
+			if (!strncmp(name, "mass_storage", strlen("mass_storage"))) {
+		    	ums_mode = true;
+			}
+			if (!strncmp(name, "cdrom", strlen("cdrom"))) {
+				cdrom_mode = true;
+				if (!ums_mode) {
+					name = "mass_storage";
+					printk("%s:cdrom mode enable\n",__func__);
+				}
+			}
 			err = android_enable_function(dev, conf, name);
 			if (err)
 				pr_err("android_usb: Cannot enable '%s' (%d)",
@@ -3540,6 +3640,9 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_pm_qos_state,
 	&dev_attr_state,
 	&dev_attr_remote_wakeup,
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+	&dev_attr_diag_status,
+#endif
 	NULL
 };
 
@@ -4021,25 +4124,15 @@ static int android_probe(struct platform_device *pdev)
 				__func__);
 		goto err_probe;
 	}
-
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+	ret = usb_register_client(&usb_ms_notif);
+	if (ret)
+		printk( "Unable to register usb_notifier: %d\n",ret);
+	g_android_dev=android_dev;
+#endif
 	/* pm qos request to prevent apps idle power collapse */
 	android_dev->curr_pm_qos_state = NO_USB_VOTE;
 	if (pdata && pdata->pm_qos_latency[0]) {
-		/*
-		 * The default request type PM_QOS_REQ_ALL_CORES is
-		 * applicable to all CPU cores that are online and
-		 * would have a power impact when there are more
-		 * number of CPUs. PM_QOS_REQ_AFFINE_IRQ request
-		 * type shall update/apply the vote only to that CPU to
-		 * which IRQ's affinity is set to.
-		 */
-#ifdef CONFIG_SMP
-		android_dev->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
-		android_dev->pm_qos_req_dma.irq =
-				android_dev->cdev->gadget->interrupt_num;
-#endif
-		pm_qos_add_request(&android_dev->pm_qos_req_dma,
-			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 		android_dev->down_pm_qos_sample_sec = DOWN_PM_QOS_SAMPLE_SEC;
 		android_dev->down_pm_qos_threshold = DOWN_PM_QOS_THRESHOLD;
 		android_dev->up_pm_qos_sample_sec = UP_PM_QOS_SAMPLE_SEC;
@@ -4097,7 +4190,9 @@ static int android_remove(struct platform_device *pdev)
 		android_class = NULL;
 		usb_composite_unregister(&android_usb_driver);
 	}
-
+#ifdef CONFIG_USB_NOTIFY_AND_DIAG_SWITCH
+	usb_unregister_client(&usb_ms_notif);
+#endif
 	return 0;
 }
 

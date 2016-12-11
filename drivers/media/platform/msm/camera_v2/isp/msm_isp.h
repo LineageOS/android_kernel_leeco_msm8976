@@ -287,7 +287,6 @@ struct msm_vfe_axi_hardware_info {
 	uint8_t num_comp_mask;
 	uint32_t min_wm_ub;
 };
-
 enum msm_vfe_axi_state {
 	AVAILABLE,
 	INACTIVE,
@@ -302,8 +301,9 @@ enum msm_vfe_axi_state {
 	PAUSING,
 	RESUMING,
 	UPDATING,
+	STARTED,
+	STOPPED,
 };
-
 enum msm_vfe_axi_cfg_update_state {
 	NO_AXI_CFG_UPDATE,
 	APPLYING_UPDATE_RESUME,

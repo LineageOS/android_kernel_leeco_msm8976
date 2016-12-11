@@ -79,6 +79,7 @@ obj-$(CONFIG_SENSORS_BMA2X2)	+= bstclass.o
 obj-$(CONFIG_SENSORS_BMA2X2)	+= bma2x2.o
 obj-$(CONFIG_SENSORS_LTR553)	+= ltr553.o
 
+obj-$(CONFIG_SENSORS_DRV2604L)	+= drv2604l.o
 ifeq ($(CONFIG_SENSORS_BMA2X2_ENABLE_INT1),y)
 	EXTRA_CFLAGS += -DBMA2X2_ENABLE_INT1
 endif
@@ -89,3 +90,4 @@ endif
 
 obj-$(CONFIG_SENSORS_MC3430)	+= mc3xxx.o
 obj-$(CONFIG_SENSORS_ISL29044A)	+= isl29044a.o
+obj-$(CONFIG_SENSORS_HALL_AHXXX) += hall_ahxxx_sensors.o

@@ -1,0 +1,1 @@
+source "drivers/input/fingerprint/goodix/Kconfig"

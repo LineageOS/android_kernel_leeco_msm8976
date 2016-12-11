@@ -22,13 +22,11 @@ struct device;
 /*
  * LED Core
  */
-
 enum led_brightness {
 	LED_OFF		= 0,
-	LED_HALF	= 127,
-	LED_FULL	= 255,
+	LED_HALF	= 2047,
+	LED_FULL	= 4095,
 };
-
 struct led_classdev {
 	const char		*name;
 	int			 brightness;

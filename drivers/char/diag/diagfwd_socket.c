@@ -474,8 +474,7 @@ static int cntl_socket_process_msg_server(uint32_t cmd, uint32_t svc_id,
 	uint8_t peripheral;
 	uint8_t found = 0;
 	struct diag_socket_info *info = NULL;
-
-	for (peripheral = 0; peripheral <= NUM_PERIPHERALS; peripheral++) {
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		info = &socket_cmd[peripheral];
 		if ((svc_id == info->svc_id) &&
 		    (ins_id == info->ins_id)) {
@@ -523,7 +522,7 @@ static int cntl_socket_process_msg_client(uint32_t cmd, uint32_t node_id,
 	struct diag_socket_info *info = NULL;
 	struct msm_ipc_port_addr remote_port = {0};
 
-	for (peripheral = 0; peripheral <= NUM_PERIPHERALS; peripheral++) {
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		info = &socket_data[peripheral];
 		remote_port = info->remote_addr.address.addr.port_addr;
 		if ((remote_port.node_id == node_id) &&
@@ -646,7 +645,6 @@ void diag_socket_invalidate(void *ctxt, struct diagfwd_info *fwd_ctxt)
 	info = (struct diag_socket_info *)ctxt;
 	info->fwd_ctxt = fwd_ctxt;
 }
-
 int diag_socket_check_state(void *ctxt)
 {
 	struct diag_socket_info *info = NULL;
@@ -657,7 +655,6 @@ int diag_socket_check_state(void *ctxt)
 	info = (struct diag_socket_info *)ctxt;
 	return (int)(atomic_read(&info->diag_state));
 }
-
 static void __diag_socket_init(struct diag_socket_info *info)
 {
 	uint16_t ins_base = 0;
@@ -884,7 +881,9 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 				      (info->data_ready > 0) || (!info->hdl) ||
 				      (atomic_read(&info->diag_state) == 0));
 	if (err) {
+		mutex_lock(&driver->diagfwd_channel_mutex);
 		diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
+		mutex_unlock(&driver->diagfwd_channel_mutex);
 		return -ERESTARTSYS;
 	}
 
@@ -963,8 +962,10 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	if (total_recd > 0) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s read total bytes: %d\n",
 			 info->name, total_recd);
+		mutex_lock(&driver->diagfwd_channel_mutex);
 		err = diagfwd_channel_read_done(info->fwd_ctxt,
 						buf, total_recd);
+		mutex_unlock(&driver->diagfwd_channel_mutex);
 		if (err)
 			goto fail;
 	} else {
@@ -977,7 +978,9 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	return 0;
 
 fail:
+	mutex_lock(&driver->diagfwd_channel_mutex);
 	diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
+	mutex_unlock(&driver->diagfwd_channel_mutex);
 	return -EIO;
 }
 

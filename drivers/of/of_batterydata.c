@@ -349,7 +349,7 @@ struct device_node *of_batterydata_get_best_profile(
 			return ERR_PTR(-ENXIO);
 		}
 	}
-
+	pr_info("id_range_pct=%d, batt_id_kohm=%d\n", id_range_pct, batt_id_kohm);
 	/*
 	 * Find the battery data with a battery id resistor closest to this one
 	 */

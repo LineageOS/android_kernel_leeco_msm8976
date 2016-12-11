@@ -458,6 +458,7 @@ struct mdss_panel_info {
 	u32 yres;
 	u32 physical_width;
 	u32 physical_height;
+	u32 panel_supply_order;//primary:1  second:2...
 	u32 bpp;
 	u32 type;
 	u32 wait_cycle;
