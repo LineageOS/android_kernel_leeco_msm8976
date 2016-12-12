@@ -7862,6 +7862,8 @@ static int smbchg_probe(struct spmi_device *spmi)
 						rc);
 			return rc;
 		}
+	} else {
+		vadc_dev = NULL;
 	}
 
 	if (of_find_property(spmi->dev.of_node, "qcom,vchg_sns-vadc", NULL)) {
