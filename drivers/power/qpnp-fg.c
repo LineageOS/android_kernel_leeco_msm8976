@@ -5021,6 +5021,7 @@ static int fg_batt_profile_init(struct fg_chip *chip)
 	const char *data, *batt_type_str, *old_batt_type;
 	bool tried_again = false, vbat_in_range, profiles_same;
 	u8 reg = 0;
+	old_batt_type = default_batt_type;
 
 wait:
 	fg_stay_awake(&chip->profile_wakeup_source);
@@ -5048,7 +5049,6 @@ wait:
 							fg_batt_type);
 	if (!profile_node) {
 		pr_err("couldn't find profile handle\n");
-		old_batt_type = default_batt_type;
 		rc = -ENODATA;
 		goto fail;
 	}
