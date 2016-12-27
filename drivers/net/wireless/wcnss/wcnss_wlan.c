@@ -43,7 +43,7 @@
 
 #include <soc/qcom/smd.h>
 
-#include <detect_wcnss_fem.h>
+#include "detect_wcnss_fem.h"
 
 #define DEVICE "wcnss_wlan"
 #define CTRL_DEVICE "wcnss_ctrl"
