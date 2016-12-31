@@ -6,7 +6,7 @@
 */
 
 #include <linux/syscalls.h>
-#include <detect_wcnss_fem.h>
+#include "detect_wcnss_fem.h"
 
 #ifdef COMPATIBLE_WCNSS_NV
 

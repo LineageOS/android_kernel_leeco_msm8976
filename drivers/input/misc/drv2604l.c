@@ -44,7 +44,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/firmware.h>
-#include <drv2604l.h>
+#include "drv2604l.h"
 #include <linux/of_gpio.h>
 #define CONFIG_HAPTICS_LRA_SEMCO1030 1
 #ifdef CONFIG_HAS_EARLYSUSPEND
