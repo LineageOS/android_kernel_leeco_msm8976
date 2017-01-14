@@ -15,19 +15,12 @@
  * inside this file. However, device definitions should be placed inside the
  */
 
-/*
-     Date            Author         	 Why
-    2015-12-21       zhangbin          add fp dtsi file
-*/
-
-
-
 &spi_2  {
-	/*status = "ok";*/
+
 	goodix_gf318m@0 {
 		compatible = "goodix,fingerprint";
 		spi-max-frequency = <4800000>;
-		reg = <0>;
+		reg = <0x0 0x0 0x0 0x0>;
 
 		input-device-name = "gf318m";
 		interrupt-parent = <&msm_gpio>;
@@ -47,7 +40,5 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
-
-		/*pinctrl-names = "default";*/
 	};
 };

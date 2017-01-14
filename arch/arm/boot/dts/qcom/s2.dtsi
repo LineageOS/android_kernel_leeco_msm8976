@@ -421,9 +421,12 @@
 		};
 	};
 
-goodix_gf318m {
+	goodix_gf318m {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
 		compatible = "goodix,fingerprint";
-		reg = <0>;
+		reg = <0x0 0x0 0x0 0x0>;
 
 		input-device-name = "gf318m";
 		interrupt-parent = <&msm_gpio>;
