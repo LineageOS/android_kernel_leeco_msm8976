@@ -4,6 +4,7 @@
 #include "s2_lcd_panels.dtsi"
 #include "s2_camera.dtsi"
 #include "s2_tp.dtsi"
+#include "s2_msm-pmi8950.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8976 QRD";
