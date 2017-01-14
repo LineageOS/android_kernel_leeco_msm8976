@@ -694,4 +694,24 @@ source "arch/arm64/crypto/Kconfig"
 endif
 
 source "lib/Kconfig"
-source "arch/arm64/product_list/Kconfig"
+
+menu "LeEco board selection"
+
+config MACH_LEECO
+	bool "Kernel support for LeEco boards"
+	help
+	  LeEco board support
+
+config MACH_MSM8916_S2
+	depends on ARCH_MSM8916
+	bool "Kernel support for LeEco s2 board"
+	help
+	  LeEco Le 2 (X52x)
+
+config PRODUCT_S2
+	depends on ARCH_MSM8916
+	bool "PRODUCT_S2 Support"
+	help
+	  Fix version type as PRODUCT_S2
+
+endmenu

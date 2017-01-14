@@ -1,6 +1,3 @@
-/*  Date            Author    	     Why              jira
-*/
-
 &soc {
 	led_flash0: qcom,camera-flash {
 		cell-index = <0>;

@@ -1,8 +1,5 @@
-/*  Date            Author    	Why              jira
-*/
-
 /dts-v1/;
-#include "msm8976-v1.1.dtsi"
+#include "../../qcom/msm8976-v1.1.dtsi"
 #include "s2.dtsi"
 
 / {

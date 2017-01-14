@@ -1,5 +1,3 @@
-/*  Date            Author    	Why              jira
-*/
 #include "s2_pinctrl.dtsi"
 #include "s2_lcd_panels.dtsi"
 #include "s2_camera.dtsi"
