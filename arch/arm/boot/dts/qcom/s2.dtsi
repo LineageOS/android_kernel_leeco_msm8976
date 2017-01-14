@@ -4,6 +4,7 @@
 #include "s2_lcd_panels.dtsi"
 #include "s2_camera.dtsi"
 #include "s2_tp.dtsi"
+#include "s2_msm-pmi8950.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8976 QRD";
@@ -21,12 +22,7 @@
 	status = "ok";
 };
 
-&blsp1_uart1 {
-	status = "ok";
-	pinctrl-names = "sleep", "default";
-	pinctrl-0 = <&hsuart_sleep>;
-	pinctrl-1 = <&hsuart_active>;
-};
+/delete-node/ &cont_splash_mem;
 
 / {
 	memory {
@@ -36,6 +32,18 @@
 			reg = <0x0 0x9ff00000 0x0 0x00100000>;
 			linux,remove-completely;
 			label = "ramoops_mem";
+		};
+
+		other_ext_mem: other_ext_region@0 {
+			/delete-property/ reg;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
+		};
+
+		cont_splash_mem: splash_region@82000000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			reg = <0x0 0x82000000 0x0 0x2800000>;
+			label = "cont_splash_mem";
 		};
 	};
 };
@@ -323,6 +331,8 @@
 	};
 };
 
+/delete-node/ &qcom_seecom;
+
 &soc {
 	ramoops {
 		compatible = "ramoops";
@@ -335,6 +345,54 @@
 		android,ramoops-pmsg-size = <0x20000>;
 		android,ramoops-dump-oops = <0x1>;
 		linux,contiguous-region = <&ramoops_mem>;
+	};
+
+	qcom_seecom: qseecom@84A00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x84A00000 0x1900000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,appsbl-qseecom-support;
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,support-bus-scaling;
+		qcom,msm-bus,vectors-KBps =
+			<55 512 0 0>,
+			<55 512 0 0>,
+			<55 512 120000 1200000>,
+			<55 512 393600 3936000>;
+		clocks = <&clock_gcc clk_crypto_clk_src>,
+			 <&clock_gcc clk_gcc_crypto_clk>,
+			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
+			 <&clock_gcc clk_gcc_crypto_axi_clk>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <100000000>;
+	};
+
+	blsp1_uart1: serial@78af000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
+		status = "ok";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+		<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&hsuart_sleep>;
+		pinctrl-1 = <&hsuart_active>;
+	};
+
+	qcom,wdt@b017000 {
+		/delete-property/ qcom,bark-time;
+		/delete-property/ qcom,pet-time;
+		qcom,bark-time = <25000>;
+		qcom,pet-time = <20000>;
 	};
 
 	consumerir-maxq656 {
