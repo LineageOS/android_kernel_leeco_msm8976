@@ -16,9 +16,7 @@
  * Update input XML file to add a new entry or update variable in this file
  * VERSION = "1.0"
  *---------------------------------------------------------------------------*/
- /*
-		Date		author			jira			why
-*/
+
 &mdss_mdp {
 	dsi_boe_nt36760_fhd_cmd: qcom,mdss_dsi_boe_nt36760_fhd_5p5boe_cmd{
 		qcom,mdss-dsi-panel-name = "boe nt36760 fhd cmd dsi panel";
