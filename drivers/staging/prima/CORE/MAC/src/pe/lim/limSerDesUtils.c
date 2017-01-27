@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -404,7 +404,7 @@ limCopyBssDescription(tpAniSirGlobal pMac, tANI_U8 *pBuf, tSirBssDescription *pB
     len++;
 
     vos_mem_copy( pBuf, (tANI_U8 *) &(pBssDescription->ieFields),
-                  limGetIElenFromBssDescription(pBssDescription));
+                  GET_IE_LEN_IN_BSS(pBssDescription->length));
 
     return (len + sizeof(tANI_U16));
 } /*** end limCopyBssDescription() ***/
@@ -999,6 +999,14 @@ limJoinReqSerDes(tpAniSirGlobal pMac, tpSirSmeJoinReq pJoinReq, tANI_U8 *pBuf)
     {
         limLog(pMac, LOGE, FL("remaining len %d is too short"), len);
         return eSIR_FAILURE;
+    }
+
+    pJoinReq->bWPSAssociation = *pBuf++;
+    len--;
+    if (limCheckRemainingLength(pMac, len) == eSIR_FAILURE)
+    {
+         limLog(pMac, LOGE, FL("remaining len %d is too short"), len);
+         return eSIR_FAILURE;
     }
 
     // Extract cbMode
@@ -1625,7 +1633,9 @@ limDisassocCnfSerDes(tpAniSirGlobal pMac, tpSirSmeDisassocCnf pDisassocCnf, tANI
     pBuf += sizeof(tSirMacAddr);
 
     vos_mem_copy( pDisassocCnf->peerMacAddr, pBuf, sizeof(tSirMacAddr));
+    pBuf += sizeof(tSirMacAddr);
 
+    pDisassocCnf->assocId = limGetU16(pBuf);
 
     return eSIR_SUCCESS;
 } /*** end limDisassocCnfSerDes() ***/

@@ -125,14 +125,14 @@ limDeactivateMinChannelTimerDuringScan(tpAniSirGlobal pMac)
  * @return None
  */
 #if defined WLAN_FEATURE_VOWIFI
-eHalStatus
+void
 limCollectBssDescription(tpAniSirGlobal pMac,
                          tSirBssDescription *pBssDescr,
                          tpSirProbeRespBeacon pBPR,
                          tANI_U8  *pRxPacketInfo,
                          tANI_U8  fScanning)
 #else
-eHalStatus
+void
 limCollectBssDescription(tpAniSirGlobal pMac,
                          tSirBssDescription *pBssDescr,
                          tpSirProbeRespBeacon pBPR,
@@ -153,26 +153,15 @@ limCollectBssDescription(tpAniSirGlobal pMac,
     pBody = WDA_GET_RX_MPDU_DATA(pRxPacketInfo);
     rfBand = WDA_GET_RX_RFBAND(pRxPacketInfo);
 
-    /**
-     * Drop all the beacons and probe response without P2P IE during P2P search
-     */
-    if (NULL != pMac->lim.gpLimMlmScanReq && pMac->lim.gpLimMlmScanReq->p2pSearch)
-    {
-        if (NULL == limGetP2pIEPtr(pMac, (pBody + SIR_MAC_B_PR_SSID_OFFSET), ieLen))
-        {
-            limLog( pMac, LOG3, MAC_ADDRESS_STR, MAC_ADDR_ARRAY(pHdr->bssId));
-            return eHAL_STATUS_FAILURE;
-        }
-    }
 
     /**
      * Length of BSS desription is without length of
      * length itself and length of pointer
-     * that holds the next BSS description
+     * that holds ieFields
      */
     pBssDescr->length = (tANI_U16)(
-                    sizeof(tSirBssDescription) - sizeof(tANI_U16) -
-                    sizeof(tANI_U32) + ieLen);
+                    ((uintptr_t)OFFSET_OF(tSirBssDescription, ieFields)) -
+                    sizeof(pBssDescr->length) + ieLen);
 
     // Copy BSS Id
     vos_mem_copy((tANI_U8 *) &pBssDescr->bssId,
@@ -318,7 +307,7 @@ limCollectBssDescription(tpAniSirGlobal pMac,
         pBssDescr->aniIndicator,
         ieLen );
 
-    return eHAL_STATUS_SUCCESS;
+    return;
 } /*** end limCollectBssDescription() ***/
 
 /**
@@ -548,19 +537,11 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
 
     // In scan state, store scan result.
 #if defined WLAN_FEATURE_VOWIFI
-    status = limCollectBssDescription(pMac, &pBssDescr->bssDescription,
+    limCollectBssDescription(pMac, &pBssDescr->bssDescription,
                              pBPR, pRxPacketInfo, fScanning);
-    if (eHAL_STATUS_SUCCESS != status)
-    {
-        goto last;
-    }
 #else
-    status = limCollectBssDescription(pMac, &pBssDescr->bssDescription,
+    limCollectBssDescription(pMac, &pBssDescr->bssDescription,
                              pBPR, pRxPacketInfo);
-    if (eHAL_STATUS_SUCCESS != status)
-    {
-        goto last;
-    }
 #endif
     pBssDescr->bssDescription.fProbeRsp = fProbeRsp;
 
@@ -635,12 +616,10 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
         }
     }//(eANI_BOOLEAN_TRUE == fScanning)
 
-last:
     if( eHAL_STATUS_SUCCESS != status )
     {
         vos_mem_free( pBssDescr );
     }
-    return;
 } /****** end limCheckAndAddBssDescription() ******/
 
 

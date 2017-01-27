@@ -49,6 +49,7 @@
 #include "vos_utils.h"
 #include "vos_api.h"
 
+
 static WDTS_TransportDriverTrype gTransportDriver = {
   WLANDXE_Open, 
   WLANDXE_Start, 
@@ -57,6 +58,7 @@ static WDTS_TransportDriverTrype gTransportDriver = {
   WLANDXE_CompleteTX,
   WLANDXE_SetPowerState,
   WLANDXE_ChannelDebug,
+  WLANDXE_KickDxe,
   WLANDXE_Stop,
   WLANDXE_Close,
   WLANDXE_GetFreeTxDataResNumber,
@@ -664,6 +666,8 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
   wpt_uint16                  usMPDUDOffset, usMPDULen;
   WDI_DS_RxMetaInfoType     *pRxMetadata;
   wpt_uint8                  isFcBd = 0;
+  WDI_DS_LoggingSessionType *pLoggingSession;
+  tPerPacketStats             rxStats = {0};
 
   tpSirMacFrameCtl  pMacFrameCtl;
   // Do Sanity checks
@@ -674,7 +678,9 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
   // Normal DMA transfer does not contain RxBD
   if (WDTS_CHANNEL_RX_FW_LOG == channel)
   {
-      wpalFwLogPktSerialize(pFrame);
+      pLoggingSession = (WDI_DS_LoggingSessionType *)
+                         WDI_DS_GetLoggingSession(pContext);
+      wpalFwLogPktSerialize(pFrame, pLoggingSession->logType);
 
       return eWLAN_PAL_STATUS_SUCCESS;
   }
@@ -931,6 +937,23 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
       {
           vos_record_roam_event(e_DXE_RX_PKT_TIME, (void *)pFrame, pRxMetadata->type);
       }
+      if ((WLAN_LOG_LEVEL_ACTIVE ==
+            vos_get_ring_log_level(RING_ID_PER_PACKET_STATS)) &&
+          !(WDI_MAC_CTRL_FRAME == pRxMetadata->type))
+      {
+          vos_mem_zero(&rxStats,sizeof(tPerPacketStats));
+          /* Peer tx packet and it is an Rx packet for us */
+          rxStats.is_rx= VOS_TRUE;
+          rxStats.tid = ucTid;
+          rxStats.rssi = (pRxMetadata->rssi0 > pRxMetadata->rssi1)?
+                                pRxMetadata->rssi0 : pRxMetadata->rssi1;
+          rxStats.rate_idx = pRxMetadata->rateIndex;
+          rxStats.seq_num = pRxMetadata->currentPktSeqNo;
+          rxStats.dxe_timestamp = vos_timer_get_system_ticks();
+          rxStats.data_len =
+               vos_copy_80211_data(pFrame, rxStats.data, pRxMetadata->type);
+          wpalPerPktSerialize(&rxStats);
+      }
 
       /* Dump first Rx packet after host wakeup */
       if (vos_get_rx_wow_dump())
@@ -1004,6 +1027,35 @@ wpt_status WDTS_OOResourceNotification(void *pContext, WDTS_ChannelType channel,
 
 }
 
+void WDTS_LogRxDone(void *pContext)
+{
+  WDI_DS_LoggingSessionType *pLoggingSession;
+
+  pLoggingSession = (WDI_DS_LoggingSessionType *)
+                       WDI_DS_GetLoggingSession(pContext);
+
+  if (NULL == pContext || pLoggingSession == NULL)
+  {
+    return;
+  }
+  /* check for done and Log type Mgmt frame = 0, QXDM = 1, FW Mem dump = 2 */
+  if (pLoggingSession->done && pLoggingSession->logType <= VALID_FW_LOG_TYPES)
+     vos_process_done_indication(pLoggingSession->logType,
+                                 pLoggingSession->reasonCode);
+
+
+  if (pLoggingSession->logType == QXDM_LOGGING &&
+     pLoggingSession->reasonCode)
+      pLoggingSession->logType = FATAL_EVENT;
+  ((WDI_DS_ClientDataType *)(pContext))->rxLogCB(pLoggingSession->logType);
+
+  pLoggingSession->done = 0;
+  pLoggingSession->logType = 0;
+  pLoggingSession->reasonCode = 0;
+
+  return;
+}
+
 void WDTS_MbReceiveMsg(void *pContext)
 {
   tpLoggingMailBox pLoggingMb;
@@ -1017,8 +1069,28 @@ void WDTS_MbReceiveMsg(void *pContext)
 
   for(i = 0; i < MAX_NUM_OF_BUFFER; i++)
   {
+      totalLen += pLoggingMb->logBuffLength[i];
+      // Send done indication when the logbuffer size exceeds 128KB.
+      if (totalLen > MAX_LOG_BUFFER_LENGTH || pLoggingMb->logBuffLength[i] > MAX_LOG_BUFFER_LENGTH)
+      {
+         DTI_TRACE( DTI_TRACE_LEVEL_ERROR, " %d received invalid log buffer length",
+                                              totalLen);
+         // Done using Mailbox, zero out the memory.
+         wpalMemoryZero(pLoggingMb, sizeof(tLoggingMailBox));
+         wpalMemoryZero(pLoggingSession, sizeof(WDI_DS_LoggingSessionType));
+         //Set Status as Failure
+         pLoggingSession->status = WDTS_LOGGING_STATUS_ERROR;
+         WDTS_LogRxDone(pContext);
+
+         return;
+      }
+  }
+
+  totalLen = 0;
+  for(i = 0; i < MAX_NUM_OF_BUFFER; i++)
+  {
      pLoggingSession->logBuffAddress[i] = pLoggingMb->logBuffAddress[i];
-     if (!noMem && (pLoggingMb->logBuffLength[i] <= MAX_LOG_BUFFER_LENGTH))
+     if (!noMem)
      {
         pLoggingSession->logBuffLength[i] = gTransportDriver.setupLogTransfer(
                                                pLoggingMb->logBuffAddress[i],
@@ -1040,6 +1112,8 @@ void WDTS_MbReceiveMsg(void *pContext)
 
   pLoggingSession->done = pLoggingMb->done;
   pLoggingSession->logType = pLoggingMb->logType;
+  pLoggingSession->reasonCode = pLoggingMb->reasonCode;
+  pLoggingSession->status = WDTS_LOGGING_STATUS_SUCCESS;
   // Done using Mailbox, zero out the memory.
   wpalMemoryZero(pLoggingMb, sizeof(tLoggingMailBox));
 
@@ -1050,28 +1124,6 @@ void WDTS_MbReceiveMsg(void *pContext)
   }
 
   // Send Done event to upper layers, since we wont be getting any from DXE
-}
-
-void WDTS_LogRxDone(void *pContext)
-{
-  WDI_DS_LoggingSessionType *pLoggingSession;
-
-  pLoggingSession = (WDI_DS_LoggingSessionType *)
-                       WDI_DS_GetLoggingSession(pContext);
-
-  if (NULL == pContext || pLoggingSession == NULL)
-  {
-    return;
-  }
-  /* check for done and Log type Mgmt frame = 0, QXDM = 1, FW Mem dump = 2 */
-  if (pLoggingSession->done && pLoggingSession->logType <= VALID_FW_LOG_TYPES)
-     vos_process_done_indication(pLoggingSession->logType, 0);
-
-  pLoggingSession->done = 0;
-  pLoggingSession->logType = 0;
-  ((WDI_DS_ClientDataType *)(pContext))->rxLogCB();
-
-  return;
 }
 
 /* DTS open  function. 
@@ -1174,6 +1226,7 @@ wpt_status WDTS_TxPacket(void *pContext, wpt_packet *pFrame)
   WDI_DS_TxMetaInfoType     *pTxMetadata;
   WDTS_ChannelType channel = WDTS_CHANNEL_TX_LOW_PRI;
   wpt_status status = eWLAN_PAL_STATUS_SUCCESS;
+  tPerPacketStats               txPktStat = {0};
 
   // extract metadata from PAL packet
   pTxMetadata = WDI_DS_ExtractTxMetaData(pFrame);
@@ -1208,6 +1261,20 @@ wpt_status WDTS_TxPacket(void *pContext, wpt_packet *pFrame)
 #endif
   // Send packet to  Transport Driver. 
   status =  gTransportDriver.xmit(pDTDriverContext, pFrame, channel);
+  if ((WLAN_LOG_LEVEL_ACTIVE ==
+           vos_get_ring_log_level(RING_ID_PER_PACKET_STATS)) &&
+       !(pTxMetadata->frmType & WDI_MAC_CTRL_FRAME)){
+
+      vos_mem_zero(&txPktStat,sizeof(tPerPacketStats));
+      txPktStat.tid = pTxMetadata->fUP;
+      txPktStat.dxe_timestamp = vos_timer_get_system_ticks();
+      /*HW limitation cant get the seq number*/
+      txPktStat.seq_num = 0;
+      txPktStat.data_len =
+      vos_copy_80211_data((void *)pFrame, txPktStat.data,
+                   pTxMetadata->frmType);
+      wpalPerPktSerialize(&txPktStat);
+  }
   if (((WDI_ControlBlockType *)pContext)->roamDelayStatsEnabled)
   {
       vos_record_roam_event(e_DXE_FIRST_XMIT_TIME, (void *)pFrame, pTxMetadata->frmType);
@@ -1297,6 +1364,19 @@ wpt_status WDTS_SetPowerState(void *pContext, WDTS_PowerStateType  powerState,
 void WDTS_ChannelDebug(wpt_boolean displaySnapshot, wpt_uint8 debugFlags)
 {
    gTransportDriver.channelDebug(displaySnapshot, debugFlags);
+   return;
+}
+
+/* DTS Transport Channel Kick Dxe
+ * Request Kick DXE when HDD TX time out happen
+ *
+ * Parameters  : NONE
+ * Return Value: NONE
+ *
+ */
+void WDTS_ChannelKickDxe()
+{
+   gTransportDriver.kickDxe();
    return;
 }
 

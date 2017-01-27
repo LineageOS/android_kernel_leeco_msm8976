@@ -95,6 +95,31 @@ static bool suspend_notify_sent;
 #endif
 
 
+#ifdef FEATURE_WLAN_DIAG_SUPPORT
+/**
+ * hdd_wlan_suspend_resume_event()- send suspend/resume state
+ *
+ * @state: suspend/resume state
+ *
+ * This Function send send suspend resume state diag event
+ *
+ * Return: void.
+ */
+void hdd_wlan_suspend_resume_event(uint8_t state)
+{
+   WLAN_VOS_DIAG_EVENT_DEF(suspend_state,
+                     struct vos_event_suspend);
+   vos_mem_zero( &suspend_state,
+                        sizeof(suspend_state));
+
+   suspend_state.state= state;
+   WLAN_VOS_DIAG_EVENT_REPORT(&suspend_state,
+                      EVENT_WLAN_SUSPEND_RESUME);
+
+}
+#endif
+
+
 /*----------------------------------------------------------------------------
 
    @brief Function to suspend the wlan driver.
@@ -119,13 +144,33 @@ static int wlan_suspend(hdd_context_t* pHddCtx)
       VOS_TRACE(VOS_MODULE_ID_HDD,VOS_TRACE_LEVEL_FATAL,"%s: Global VOS_SCHED context is Null",__func__);
       return 0;
    }
-   if(!vos_is_apps_power_collapse_allowed(pHddCtx))
+
+   if (!pHddCtx->last_suspend_success)
+     pHddCtx->last_suspend_success = vos_timer_get_system_time();
+
+   if (!vos_is_apps_power_collapse_allowed(pHddCtx))
    {
        /* Fail this suspend */
-       VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR, "%s: Fail wlan suspend: not in IMPS/BMPS", __func__);
+       pHddCtx->continuous_suspend_fail_cnt++;
+       VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_WARN,
+        FL("Fail wlan suspend: not in IMPS/BMPS, continuous Failcnt %d"),
+        pHddCtx->continuous_suspend_fail_cnt);
+
+       /* call fatal event if power collapse fails for
+        * WLAN_POWER_COLLAPSE_FAIL_THRESHOLD time.
+        */
+       if ((vos_timer_get_system_time() - pHddCtx->last_suspend_success) >=
+                                         WLAN_POWER_COLLAPSE_FAIL_THRESHOLD)
+       {
+          pHddCtx->last_suspend_success = 0;
+          vos_fatal_event_logs_req(WLAN_LOG_TYPE_FATAL,
+                      WLAN_LOG_INDICATOR_HOST_DRIVER,
+                      WLAN_LOG_REASON_POWER_COLLAPSE_FAIL,
+                      FALSE, TRUE);
+       }
        return -EPERM;
    }
-
+   pHddCtx->continuous_suspend_fail_cnt = 0;
    /*
      Suspending MC Thread, Rx Thread and Tx Thread as the platform driver is going to Suspend.     
    */
@@ -159,7 +204,18 @@ static int wlan_suspend(hdd_context_t* pHddCtx)
                    "%s: TX Thread: will still suspend", __func__);
          goto tx_suspend;
       }
-
+      /* call fatal event if suspend for
+       * WLAN_POWER_COLLAPSE_FAIL_THRESHOLD time.
+       */
+      if ((vos_timer_get_system_time() - pHddCtx->last_suspend_success) >=
+                                         WLAN_POWER_COLLAPSE_FAIL_THRESHOLD)
+      {
+          pHddCtx->last_suspend_success = 0;
+          vos_fatal_event_logs_req(WLAN_LOG_TYPE_FATAL,
+                      WLAN_LOG_INDICATOR_HOST_DRIVER,
+                      WLAN_LOG_REASON_POWER_COLLAPSE_FAIL,
+                      FALSE, TRUE);
+      }
       return -ETIME;
    }
 
@@ -200,6 +256,18 @@ tx_suspend:
 
        /* Set the Tx Thread as Resumed */
        pHddCtx->isTxThreadSuspended = FALSE;
+      /* call fatal event if suspend for
+       * WLAN_POWER_COLLAPSE_FAIL_THRESHOLD time.
+       */
+      if ((vos_timer_get_system_time() - pHddCtx->last_suspend_success) >=
+                                         WLAN_POWER_COLLAPSE_FAIL_THRESHOLD)
+      {
+          pHddCtx->last_suspend_success = 0;
+          vos_fatal_event_logs_req(WLAN_LOG_TYPE_FATAL,
+                      WLAN_LOG_INDICATOR_HOST_DRIVER,
+                      WLAN_LOG_REASON_POWER_COLLAPSE_FAIL,
+                      FALSE, TRUE);
+      }
 
        return -ETIME;
    }
@@ -250,6 +318,19 @@ rx_suspend:
        /* Set the Tx Thread as Resumed */
        pHddCtx->isTxThreadSuspended = FALSE;
 
+      /* call fatal event if suspend for
+       * WLAN_POWER_COLLAPSE_FAIL_THRESHOLD time.
+       */
+      if ((vos_timer_get_system_time() - pHddCtx->last_suspend_success) >=
+                                         WLAN_POWER_COLLAPSE_FAIL_THRESHOLD)
+      {
+          pHddCtx->last_suspend_success = 0;
+          vos_fatal_event_logs_req(WLAN_LOG_TYPE_FATAL,
+                      WLAN_LOG_INDICATOR_HOST_DRIVER,
+                      WLAN_LOG_REASON_POWER_COLLAPSE_FAIL,
+                      FALSE, TRUE);
+      }
+
        return -ETIME;
    }
 
@@ -259,9 +340,9 @@ mc_suspend:
    
    /* Set the Station state as Suspended */
    pHddCtx->isWlanSuspended = TRUE;
-
+   pHddCtx->last_suspend_success = 0;
    pHddCtx->rx_wow_dump = true;
-
+   hdd_wlan_suspend_resume_event(HDD_WLAN_SUSPEND);
    return 0;
 }
 
@@ -313,6 +394,7 @@ static void wlan_resume(hdd_context_t* pHddCtx)
 
    /* Set the Station state as Suspended */
    pHddCtx->isWlanSuspended = FALSE;
+   hdd_wlan_suspend_resume_event(HDD_WLAN_RESUME);
 }
 
 /*----------------------------------------------------------------------------

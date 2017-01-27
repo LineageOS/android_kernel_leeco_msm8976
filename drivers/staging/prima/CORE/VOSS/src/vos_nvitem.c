@@ -180,7 +180,7 @@ chan_to_ht_40_index_map chan_to_ht_40_index[NUM_20MHZ_RF_CHANNELS] =
 static CountryInfoTable_t countryInfoTable =
 {
     /* the first entry in the table is always the world domain */
-    138,
+    139,
     {
       {REGDOMAIN_WORLD, {'0', '0'}}, // WORLD DOMAIN
       {REGDOMAIN_ETSI, {'A', 'D'}}, // ANDORRA
@@ -320,6 +320,7 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_ETSI, {'Y', 'T'}}, //MAYOTTE
       {REGDOMAIN_ETSI, {'Z', 'A'}}, //SOUTH AFRICA
       {REGDOMAIN_ETSI, {'Z', 'W'}}, //ZIMBABWE
+      {REGDOMAIN_JAPAN, {'X', 'A'}}, //JAPAN PASSIVE
     }
 };
 
@@ -1377,7 +1378,7 @@ VOS_STATUS vos_nv_open(void)
        vos_mem_free(pnvData);
     }
 
-    VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+    VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
         "INFO: NV version = %d is loaded, driver supports NV version = %d",
         gnvEFSTable->halnv.fields.nvVersion, WLAN_NV_VERSION);
 
@@ -1397,7 +1398,7 @@ VOS_STATUS vos_nv_open(void)
            else if ((WLAN_NV_VERSION == NV_VERSION_CH144_CONFIG) &&
                     (((VosContextType*)(pVosContext))->nvVersion == E_NV_V2))
            {
-               VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+               VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
                    "INFO: Driver supports NV3 CH144 by default, "
                    "NV2 is currently loaded, NV2 will be used.");
            }
@@ -1619,6 +1620,14 @@ VOS_STATUS vos_nv_close(void)
     vos_mem_vfree(pEncodedBuf);
     vos_mem_free(pDictFile);
     vos_mem_vfree(pnvEncodedBuf);
+   /*
+    * Reset the linux_reg identifier to allow
+    * driver to send fresh regulatory hint to
+    * the kernel in case of a static driver reload
+    * under strict regulatory domain.
+    */
+    linux_reg_cc[0] = '0';
+    linux_reg_cc[1] = '0';
 
     gnvEFSTable=NULL;
     return VOS_STATUS_SUCCESS;
@@ -3429,11 +3438,13 @@ VOS_STATUS vos_nv_getRegDomainFromCountryCode( v_REGDOMAIN_t *pRegDomain,
 
     if (REGDOMAIN_COUNT == temp_reg_domain) {
 
-        /* the country was not found in the driver database */
-        /* so we will return the REGDOMAIN_WORLD to SME/CSR */
+        /* the country was not found in the driver database
+         * so we will return the REGDOMAIN_WORLD to SME/CSR
+         */
 
-        VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                   ("Country does not map to any Regulatory domain"));
+        VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
+            ("Country %c%c does not map to any Regulatory domain"),
+               country_code[0], country_code[1]);
 
         temp_reg_domain = REGDOMAIN_WORLD;
     }
@@ -3632,7 +3643,11 @@ int vos_update_nv_table_from_wiphy_band(void *hdd_ctx,
                  * will not change channel to active.
                  */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))
+                if  (!(wiphy->regulatory_flags & REGULATORY_STRICT_REG))
+#else
                 if  (!(wiphy->flags & WIPHY_FLAG_STRICT_REGULATORY ))
+#endif
                 {
                     if (!(reg_rule->flags & NL80211_RRF_PASSIVE_SCAN))
                     {
@@ -3672,8 +3687,13 @@ int vos_update_nv_table_from_wiphy_band(void *hdd_ctx,
             }
             /* nv cannot distinguish between DFS and passive channels */
             else if (wiphy->bands[i]->channels[j].flags &
-                    (IEEE80211_CHAN_RADAR | IEEE80211_CHAN_PASSIVE_SCAN))
+                    (IEEE80211_CHAN_RADAR | IEEE80211_CHAN_PASSIVE_SCAN |
+                     IEEE80211_CHAN_INDOOR_ONLY))
             {
+                if (wiphy->bands[i]->channels[j].flags &
+                        IEEE80211_CHAN_INDOOR_ONLY)
+                    wiphy->bands[i]->channels[j].flags |=
+                        IEEE80211_CHAN_PASSIVE_SCAN;
 #ifdef FEATURE_WLAN_CH144
                 if ((RF_CHAN_144 == k) && (E_NV_V3 != vos_nv_getNvVersion()))
                 {
@@ -4205,7 +4225,11 @@ VOS_STATUS vos_init_wiphy_from_nv_bin(void)
         /* default country is world roaming */
 
         reg_domain = REGDOMAIN_WORLD;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))
+        wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
+#else
         wiphy->flags |= WIPHY_FLAG_CUSTOM_REGULATORY;
+#endif
     }
     else if (REGDOMAIN_WORLD ==
 	     pnvEFSTable->halnv.tables.defaultCountryTable.regDomain) {
@@ -4215,7 +4239,11 @@ VOS_STATUS vos_init_wiphy_from_nv_bin(void)
     else {
 
         reg_domain = pnvEFSTable->halnv.tables.defaultCountryTable.regDomain;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0))
+        wiphy->regulatory_flags |= REGULATORY_STRICT_REG;
+#else
         wiphy->flags |= WIPHY_FLAG_STRICT_REGULATORY;
+#endif
     }
 
     temp_reg_domain = cur_reg_domain = reg_domain;

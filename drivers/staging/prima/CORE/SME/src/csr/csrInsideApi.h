@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -37,6 +37,7 @@
 #define CSR_INSIDE_API_H__
 
 
+#include <linux/version.h>
 #include "csrSupport.h"
 #include "smeInside.h"
 #include "vos_nvitem.h"
@@ -222,8 +223,19 @@ typedef struct
     tListElem *pCurEntry;
 }tScanResultList;
 
-
-
+/**
+ * csr_scan_for_ssid_context() - Callback context for SSID scan
+ *
+ * @pMac: pMac handle
+ * @sessionId: scan session id
+ * @roamId: roam Id
+ */
+struct csr_scan_for_ssid_context
+{
+    tpAniSirGlobal pMac;
+    tANI_U32 sessionId;
+    tANI_U32 roamId;
+};
 
 #define CSR_IS_ROAM_REASON( pCmd, reason ) ( (reason) == (pCmd)->roamCmd.roamReason )
 #define CSR_IS_BETTER_PREFER_VALUE(v1, v2)   ((v1) > (v2))
@@ -425,7 +437,6 @@ eCsrCfgDot11Mode csrGetCfgDot11ModeFromCsrPhyMode(tCsrRoamProfile *pProfile, eCs
 tANI_U32 csrTranslateToWNICfgDot11Mode(tpAniSirGlobal pMac, eCsrCfgDot11Mode csrDot11Mode);
 void csrSaveChannelPowerForBand( tpAniSirGlobal pMac, tANI_BOOLEAN fPopulate5GBand );
 void csrApplyChannelPowerCountryInfo( tpAniSirGlobal pMac, tCsrChannel *pChannelList, tANI_U8 *countryCode, tANI_BOOLEAN updateRiva);
-void csrUpdateFCCChannelList(tpAniSirGlobal pMac);
 void csrApplyPower2Current( tpAniSirGlobal pMac );
 void csrAssignRssiForCategory(tpAniSirGlobal pMac, tANI_S8 bestApRssi, tANI_U8 catOffset);
 tANI_BOOLEAN csrIsMacAddressZero( tpAniSirGlobal pMac, tCsrBssid *pMacAddr );
@@ -686,6 +697,11 @@ tANI_BOOLEAN csrIsProfileWapi( tCsrRoamProfile *pProfile );
 #define WLAN_SECURITY_EVENT_PMKID_CANDIDATE_FOUND  7
 #define WLAN_SECURITY_EVENT_PMKID_UPDATE    8
 #define WLAN_SECURITY_EVENT_MIC_ERROR       9   
+#define WLAN_SECURITY_EVENT_SET_UNICAST_REQ  10
+#define WLAN_SECURITY_EVENT_SET_UNICAST_RSP  11
+#define WLAN_SECURITY_EVENT_SET_BCAST_REQ    12
+#define WLAN_SECURITY_EVENT_SET_BCAST_RSP    13
+
 
 #define AUTH_OPEN       0
 #define AUTH_SHARED     1
@@ -961,8 +977,12 @@ void csrCallRoamingCompletionCallback(tpAniSirGlobal pMac, tCsrRoamSession *pSes
     \return eHalStatus
   ---------------------------------------------------------------------------*/
 eHalStatus csrRoamIssueDisassociateStaCmd( tpAniSirGlobal pMac, 
-                                           tANI_U32 sessionId, 
+                                           tANI_U32 sessionId,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
+                                           const tANI_U8 *pPeerMacAddr,
+#else
                                            tANI_U8 *pPeerMacAddr,
+#endif
                                            tANI_U32 reason);
 
 /* ---------------------------------------------------------------------------
@@ -1068,10 +1088,18 @@ eHalStatus csrScanCreateEntryInScanCache(tpAniSirGlobal pMac, tANI_U32 sessionId
 
 eHalStatus csrUpdateChannelList(tpAniSirGlobal pMac);
 eHalStatus csrRoamDelPMKIDfromCache( tpAniSirGlobal pMac, tANI_U32 sessionId,
-                                     tANI_U8 *pBSSId, tANI_BOOLEAN flush_cache );
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
+                                     const tANI_U8 *pBSSId,
+#else
+                                     tANI_U8 *pBSSId,
+#endif
+                                     tANI_BOOLEAN flush_cache );
 tANI_BOOLEAN csrElectedCountryInfo(tpAniSirGlobal pMac);
 void csrAddVoteForCountryInfo(tpAniSirGlobal pMac, tANI_U8 *pCountryCode);
 void csrClearVotesForCountryInfo(tpAniSirGlobal pMac);
+void csr_remove_bssid_from_scan_list(tpAniSirGlobal pMac,
+       tSirMacAddr bssid);
+
 #ifdef WLAN_FEATURE_AP_HT40_24G
 eHalStatus csrSetHT2040Mode(tpAniSirGlobal pMac, tANI_U32 sessionId, tANI_U8 cbMode);
 #endif

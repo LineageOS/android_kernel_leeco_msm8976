@@ -2679,7 +2679,10 @@ limSendAssocReqMgmtFrame(tpAniSirGlobal   pMac,
     {
         txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
     }
-
+#ifdef FEATURE_WLAN_DIAG_SUPPORT
+    limDiagEventReport(pMac, WLAN_PE_DIAG_ASSOC_START_EVENT, psessionEntry,
+            eSIR_SUCCESS, eSIR_SUCCESS);
+#endif
     pMacHdr = ( tpSirMacMgmtHdr ) pFrame;
     limLog( pMac, LOG1, FL("Sending Assoc req over WQ5 to "MAC_ADDRESS_STR
               " From " MAC_ADDRESS_STR),MAC_ADDR_ARRAY(pMacHdr->da),
@@ -3142,21 +3145,33 @@ limSendReassocReqWithFTIEsMgmtFrame(tpAniSirGlobal     pMac,
         vos_mem_free(psessionEntry->assocReq);
         psessionEntry->assocReq = NULL;
     }
-
-    psessionEntry->assocReq = vos_mem_malloc(ft_ies_length);
-    if ( NULL == psessionEntry->assocReq )
+    if (ft_ies_length)
     {
-        PELOGE(limLog(pMac, LOGE, FL("Unable to allocate memory to store assoc request"));)
-        psessionEntry->assocReqLen = 0;
+        psessionEntry->assocReq = vos_mem_malloc(ft_ies_length);
+        if (NULL == psessionEntry->assocReq)
+        {
+            limLog(pMac, LOGE,
+                        FL("Unable to allocate memory for FT IEs"));
+            psessionEntry->assocReqLen = 0;
+        }
+        else
+        {
+            /* Store the FT IEs. This is sent to csr/hdd in join cnf response.*/
+            vos_mem_copy(psessionEntry->assocReq,
+                    pMac->ft.ftSmeContext.reassoc_ft_ies,
+                    (ft_ies_length));
+            psessionEntry->assocReqLen = ft_ies_length;
+        }
     }
     else
     {
-       //Store the Assoc request. This is sent to csr/hdd in join cnf response. 
-       vos_mem_copy( psessionEntry->assocReq, pMac->ft.ftSmeContext.reassoc_ft_ies,
-                    (ft_ies_length));
-       psessionEntry->assocReqLen = (ft_ies_length);
+        limLog(pMac, LOG1, FL("FT IEs not present"));
+        psessionEntry->assocReqLen = 0;
     }
-
+#ifdef FEATURE_WLAN_DIAG_SUPPORT
+    limDiagEventReport(pMac, WLAN_PE_DIAG_REASSOC_START_EVENT, psessionEntry,
+            eSIR_SUCCESS, eSIR_SUCCESS);
+#endif
     MTRACE(macTrace(pMac, TRACE_CODE_TX_MGMT,
            psessionEntry->peSessionId,
            pMacHdr->fc.subType));
@@ -3581,6 +3596,10 @@ limSendReassocReqMgmtFrame(tpAniSirGlobal     pMac,
     {
         txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
     }
+#ifdef FEATURE_WLAN_DIAG_SUPPORT
+    limDiagEventReport(pMac, WLAN_PE_DIAG_REASSOC_START_EVENT, psessionEntry,
+             eSIR_SUCCESS, eSIR_SUCCESS);
+#endif
 
     MTRACE(macTrace(pMac, TRACE_CODE_TX_MGMT,
            psessionEntry->peSessionId,
@@ -3661,6 +3680,11 @@ eHalStatus limAuthTxCompleteCnf(tpAniSirGlobal pMac, void *pData)
     }
     else
        pMac->authAckStatus = LIM_AUTH_ACK_RCD_FAILURE;
+#ifdef FEATURE_WLAN_DIAG_SUPPORT
+    limDiagEventReport(pMac, WLAN_PE_DIAG_AUTH_START_EVENT, NULL,
+                       pMac->authAckStatus, eSIR_SUCCESS);
+#endif
+
     return eHAL_STATUS_SUCCESS;
 }
 
@@ -7023,3 +7047,140 @@ returnAfterError:
    return nSirStatus;
 } // End limSendSaQueryResponseFrame
 #endif
+
+#ifdef WLAN_FEATURE_RMC
+tSirRetStatus
+limSendRMCActionFrame(tpAniSirGlobal  pMac,
+                        tSirMacAddr   peerMacAddr,
+                        tSirRMCInfo  *pRMC,
+                        tpPESession   psessionEntry)
+{
+    tSirRetStatus    nSirStatus;
+    tANI_U8         *pFrame;
+    tDot11fRMC       RMC;
+    tANI_U32         nPayload, nBytes, nStatus;
+    tpSirMacMgmtHdr  pMacHdr;
+    void            *pPacket;
+    eHalStatus       halstatus;
+    tANI_U8          txFlag = 0;
+    tANI_U8 MagicCode[] = { 0x4f, 0x58, 0x59, 0x47, 0x45, 0x4e };
+
+    if (NULL == psessionEntry)
+    {
+       return eSIR_FAILURE;
+    }
+
+    vos_mem_set(( tANI_U8* )&RMC, sizeof( RMC ), 0);
+
+    RMC.Action.action     = pRMC->action;
+    RMC.RMCDialogToken.token = pRMC->dialogToken;
+    RMC.Category.category = SIR_MAC_ACTION_VENDOR_SPECIFIC_CATEGORY;
+    RMC.RMCVersion.version = SIR_MAC_RMC_VER;
+
+    vos_mem_copy(&RMC.RMCOUI.oui, SIR_MAC_RMC_OUI, SIR_MAC_RMC_OUI_SIZE);
+    vos_mem_copy(&RMC.MagicCode.magic, MagicCode, sizeof(MagicCode));
+
+    vos_mem_copy(&RMC.Ruler.mac, pRMC->mcastRuler, sizeof(tSirMacAddr));
+
+    nStatus = dot11fGetPackedRMCSize( pMac, &RMC, &nPayload );
+    if ( DOT11F_FAILED( nStatus ) )
+    {
+        limLog( pMac, LOGE, FL("Failed to calculate the packed size for "
+                               "an RMC (0x%08x)."),
+                nStatus );
+        // We'll fall back on the worst case scenario:
+        nPayload = sizeof( tDot11fRMC );
+    }
+    else if ( DOT11F_WARNED( nStatus ) )
+    {
+        limLog( pMac, LOGW, FL("There were warnings while calculating "
+                               "the packed size for an RMC Action Frame"
+                               " (0x%08x)."), nStatus );
+    }
+
+    nBytes = nPayload + sizeof( tSirMacMgmtHdr );
+
+    halstatus = palPktAlloc( pMac->hHdd, HAL_TXRX_FRM_802_11_MGMT,
+                             ( tANI_U16 )nBytes, ( void** ) &pFrame,
+                             ( void** ) &pPacket );
+    if ( ! HAL_STATUS_SUCCESS ( halstatus ) )
+    {
+        limLog( pMac, LOGP, FL("Failed to allocate %d bytes for an RMC "
+                               "Action Frame."), nBytes );
+        return eSIR_FAILURE;
+    }
+
+    // Paranoia:
+    vos_mem_set( pFrame, nBytes, 0 );
+
+    // Next, we fill out the buffer descriptor:
+    nSirStatus = limPopulateMacHeader( pMac, pFrame, SIR_MAC_MGMT_FRAME,
+                    SIR_MAC_MGMT_ACTION, peerMacAddr,
+                    psessionEntry->selfMacAddr);
+    if ( eSIR_SUCCESS != nSirStatus )
+    {
+        limLog( pMac, LOGE, FL("Failed to populate the buffer descriptor "
+                               "for an RMC Action Frame (%d)."),
+                nSirStatus );
+        palPktFree( pMac->hHdd, HAL_TXRX_FRM_802_11_MGMT,
+                    ( void* ) pFrame, ( void* ) pPacket );
+        return nSirStatus;
+    }
+
+    // Update A3 with the BSSID
+    pMacHdr = ( tpSirMacMgmtHdr ) pFrame;
+    sirCopyMacAddr(pMacHdr->bssId,psessionEntry->bssId);
+
+    // That done, pack the struct:
+    nStatus = dot11fPackRMC( pMac, &RMC,
+                                      pFrame + sizeof(tSirMacMgmtHdr),
+                                      nPayload, &nPayload );
+    if ( DOT11F_FAILED( nStatus ) )
+    {
+        limLog( pMac, LOGE, FL("Failed to pack an RMC "
+                               "(0x%08x)."),
+                nStatus );
+        palPktFree( pMac->hHdd, HAL_TXRX_FRM_802_11_MGMT, ( void* ) pFrame,
+                     ( void* ) pPacket );
+        return eSIR_FAILURE;
+    }
+    else if ( DOT11F_WARNED( nStatus ) )
+    {
+        limLog( pMac, LOGW, FL("There were warnings while packing "
+                               "an RMC (0x%08x)."), nStatus );
+    }
+
+    limLog( pMac, LOG1, FL("Sending an RMC Action frame to "
+             MAC_ADDRESS_STR), MAC_ADDR_ARRAY(peerMacAddr));
+
+    /*
+     * With this masking, RMC action frames will be sent
+     * at self-sta rates for both 2G and 5G bands.
+     */
+    txFlag |= HAL_USE_SELF_STA_REQUESTED_MASK;
+
+    MTRACE(macTrace(pMac, TRACE_CODE_TX_MGMT,
+           psessionEntry->peSessionId,
+           pMacHdr->fc.subType));
+    // Queue RMC Action frame in high priority WQ
+    halstatus = halTxFrame( pMac, pPacket, ( tANI_U16 ) nBytes,
+                            HAL_TXRX_FRM_802_11_MGMT,
+                            ANI_TXDIR_TODS,
+                            7,//SMAC_SWBD_TX_TID_MGMT_HIGH,
+                            limTxComplete, pFrame, txFlag );
+    MTRACE(macTrace(pMac, TRACE_CODE_TX_COMPLETE,
+           psessionEntry->peSessionId,
+           halstatus));
+    if ( ! HAL_STATUS_SUCCESS ( halstatus ) )
+    {
+        limLog( pMac, LOGE, FL( "*** Could not send an RMC Action frame"
+                                " (%X) ***" ), halstatus );
+        //Pkt will be freed up by the callback
+        return eSIR_FAILURE;
+    }
+
+    return eSIR_SUCCESS;
+
+} // End limSendRMCActionFrame.
+
+#endif /* WLAN_FEATURE_RMC */
