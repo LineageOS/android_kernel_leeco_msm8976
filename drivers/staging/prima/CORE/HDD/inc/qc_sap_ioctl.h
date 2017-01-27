@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -40,6 +40,7 @@
 #define QCSAP_MAX_OPT_IE        256
 #define QCSAP_MAX_WSC_IE        256
 #define QCSAP_MAX_GET_STA_INFO  512
+#define QCSAP_MAX_STR_LEN      1024
 
 typedef struct sSSID
 {

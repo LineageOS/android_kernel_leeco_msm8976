@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -827,6 +827,8 @@ sapSignalHDDevent
                             pCsrRoamInfo->addIELen);
             }
 
+            sapApAppEvent.sapevt.sapStationAssocReassocCompleteEvent.rate_flags = pCsrRoamInfo->maxRateFlags;
+
             sapApAppEvent.sapevt.sapStationAssocReassocCompleteEvent.wmmEnabled = pCsrRoamInfo->wmmEnabledSta;
             sapApAppEvent.sapevt.sapStationAssocReassocCompleteEvent.status = (eSapStatus )context;
             //TODO: Need to fill sapAuthType
@@ -1105,20 +1107,8 @@ sapFsm
                                "In %s, Failed to Init HT20/40 timer", __func__);
 #endif
              }
-             else if (msg == eSAP_MAC_START_FAILS)
-             {
-                 /*Transition from STARTING to DISCONNECTED (both without substates)*/
-                 VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR, "In %s, from state %s => %s",
-                            __func__, "eSAP_STARTING", "eSAP_DISCONNECTED");
-
-                 /*Action code for transition */
-                 vosStatus = sapSignalHDDevent( sapContext, NULL, eSAP_START_BSS_EVENT,(v_PVOID_t) eSAP_STATUS_FAILURE);
-                 vosStatus =  sapGotoDisconnected(sapContext);
-
-                 /*Advance outer statevar */
-                 sapContext->sapsMachine = eSAP_DISCONNECTED;
-             }
-             else if (msg == eSAP_HDD_STOP_INFRA_BSS)
+             else if ((msg == eSAP_HDD_STOP_INFRA_BSS) ||
+                      (msg == eSAP_MAC_START_FAILS))
              {
                  /*Transition from eSAP_STARTING to eSAP_DISCONNECTING (both without substates)*/
                  VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_INFO_HIGH, "In %s, from state %s => %s",
@@ -1157,7 +1147,8 @@ sapFsm
                     }
                     else if (eHAL_STATUS_SUCCESS ==
                          sme_CloseSession(hHal,
-                                         sapContext->sessionId, VOS_TRUE, NULL, NULL))
+                                         sapContext->sessionId, FALSE,
+                                         VOS_TRUE, NULL, NULL))
                      {
                          sapContext->isSapSessionOpen = eSAP_FALSE;
                      }
@@ -1237,15 +1228,13 @@ sapFsm
                     else
                     {
                         sapContext->isSapSessionOpen = eSAP_FALSE;
-                        if (!HAL_STATUS_SUCCESS(
-                            sme_CloseSession(hHal,
-                                     sapContext->sessionId, VOS_TRUE,
-                                     sapRoamSessionCloseCallback, sapContext)))
-                        {
-                            vosStatus = sapSignalHDDevent(sapContext, NULL,
-                                              eSAP_STOP_BSS_EVENT,
-                                              (v_PVOID_t) eSAP_STATUS_SUCCESS);
-                        }
+                        sme_CloseSession(hHal,
+                                sapContext->sessionId,  TRUE, VOS_TRUE,
+                                NULL, sapContext);
+
+                        vosStatus = sapSignalHDDevent(sapContext, NULL,
+                                eSAP_STOP_BSS_EVENT,
+                                (v_PVOID_t) eSAP_STATUS_SUCCESS);
                     }
                 }
             }
@@ -1348,7 +1337,8 @@ sapconvertToCsrProfile(tsap_Config_t *pconfig_params, eCsrRoamBssType bssType, t
            VOS_TRACE(VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR, " %s Fail to alloc memory", __func__);
            return eSAP_STATUS_FAILURE;
         }
-        vos_mem_copy(profile->pRSNReqIE, pconfig_params->pRSNWPAReqIE, pconfig_params->RSNWPAReqIELength);
+        vos_mem_copy(profile->pRSNReqIE, pconfig_params->RSNWPAReqIE,
+                     pconfig_params->RSNWPAReqIELength);
         profile->nRSNReqIELength = pconfig_params->RSNWPAReqIELength;
     }
 
