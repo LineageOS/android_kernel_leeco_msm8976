@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -441,7 +441,7 @@ PopulateDot11fERPInfo(tpAniSirGlobal    pMac,
 
         val  = psessionEntry->cfgProtection.fromllb;
         if(!val ){
-            dot11fLog( pMac, LOGE, FL("11B protection not enabled. Not populating ERP IE %d" ),val );
+            dot11fLog( pMac, LOG1, FL("11B protection not enabled. Not populating ERP IE %d" ),val );
             return eSIR_SUCCESS;
         }
 
@@ -740,6 +740,8 @@ void limLogOperatingMode( tpAniSirGlobal pMac,
 void limLogQosMapSet(tpAniSirGlobal pMac, tSirQosMapSet *pQosMapSet)
 {
     tANI_U8 i;
+    if (pQosMapSet->num_dscp_exceptions > 21)
+        pQosMapSet->num_dscp_exceptions = 21;
     limLog(pMac, LOG1, FL("num of dscp exceptions : %d"),
                                    pQosMapSet->num_dscp_exceptions);
     for (i=0; i < pQosMapSet->num_dscp_exceptions; i++)
@@ -2113,7 +2115,27 @@ tSirRetStatus ValidateAndRectifyIEs(tpAniSirGlobal pMac,
                        FL("Added RSN Capability to the RSNIE as 0x00 0x00"));
 
                 return eHAL_STATUS_SUCCESS;
+            } else {
+                /* Workaround: Some APs may add extra 0x00 padding after IEs.
+                 * Return true to allow these probe response frames proceed.
+                 */
+                if (nFrameBytes - length > 0) {
+                    tANI_U32 i;
+                    tANI_BOOLEAN zero_padding = VOS_TRUE;
+
+                    for (i = length; i < nFrameBytes; i ++) {
+                        if (pMgmtFrame[i-1] != 0x0) {
+                            zero_padding = VOS_FALSE;
+                            break;
+                        }
+                    }
+
+                    if (zero_padding) {
+                        return eHAL_STATUS_SUCCESS;
+                    }
+                }
             }
+
             return eSIR_FAILURE;
         }
     }
@@ -2692,7 +2714,7 @@ sirConvertAssocRespFrame2Struct(tpAniSirGlobal pMac,
 #endif
 
 #ifdef WLAN_FEATURE_VOWIFI_11R
-    if (ar.num_RICDataDesc) {
+    if (ar.num_RICDataDesc <= 2) {
         for (cnt=0; cnt < ar.num_RICDataDesc; cnt++) {
             if (ar.RICDataDesc[cnt].present) {
                 vos_mem_copy( &pAssocRsp->RICData[cnt], &ar.RICDataDesc[cnt],
@@ -4277,9 +4299,9 @@ sirConvertQosMapConfigureFrame2Struct(tpAniSirGlobal    pMac,
     tDot11fQosMapConfigure mapConfigure;
     tANI_U32 status;
     status = dot11fUnpackQosMapConfigure(pMac, pFrame, nFrame, &mapConfigure);
-    if ( DOT11F_FAILED( status ) )
+    if ( DOT11F_FAILED( status ) || !mapConfigure.QosMapSet.present )
     {
-        dot11fLog(pMac, LOGE, FL("Failed to parse Qos Map Configure frame (0x%08x, %d bytes):"),
+        dot11fLog(pMac, LOGE, FL("Failed to parse or QosMapSet not present(0x%08x, %d bytes):"),
                   status, nFrame);
         PELOG2(sirDumpBuf(pMac, SIR_DBG_MODULE_ID, LOG2, pFrame, nFrame);)
         return eSIR_FAILURE;
@@ -4356,7 +4378,7 @@ sirConvertMeasReqFrame2Struct(tpAniSirGlobal             pMac,
     tANI_U32                       status;
 
     // Zero-init our [out] parameter,
-    vos_mem_set( ( tANI_U8* )pMeasReqFrame, sizeof(tpSirMacMeasReqActionFrame), 0 );
+    vos_mem_set( ( tANI_U8* )pMeasReqFrame, sizeof(*pMeasReqFrame), 0 );
 
     // delegate to the framesc-generated code,
     status = dot11fUnpackMeasurementRequest( pMac, pFrame, nFrame, &mr );

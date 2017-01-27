@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -75,6 +75,10 @@
 #include "wmmApsd.h"
 #endif
 
+#ifdef WLAN_FEATURE_RMC
+#include "limRMC.h"
+#endif
+
 #include "vos_types.h"
 #include "vos_packet.h"
 #include "vos_memory.h"
@@ -85,6 +89,8 @@
 #ifdef WLAN_FEATURE_EXTSCAN
 #define  SIZE_OF_FIXED_PARAM 12
 #endif
+
+#define CHECK_BIT(value, mask)    ((value) & (1 << (mask)))
 
 void limLogSessionStates(tpAniSirGlobal pMac);
 
@@ -645,7 +651,7 @@ limProcessEXTScanRealTimeData(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo)
         tEXTScanFullScanResult.ap.capability =
                             *(((tANI_U16 *)&pProbeResponse->Capabilities));
 
-        vos_mem_free(pBeacon);
+        vos_mem_free(pProbeResponse);
     }
     else
     {
@@ -695,6 +701,7 @@ limProcessEXTScanRealTimeData(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo)
  */
 
 static void 
+
 limHandle80211Frames(tpAniSirGlobal pMac, tpSirMsgQ limMsg, tANI_U8 *pDeferMsg)
 {
     tANI_U8          *pRxPacketInfo = NULL;
@@ -734,9 +741,12 @@ limHandle80211Frames(tpAniSirGlobal pMac, tpSirMsgQ limMsg, tANI_U8 *pDeferMsg)
         if ((fc.type == SIR_MAC_MGMT_FRAME) &&
                 (fc.subType != SIR_MAC_MGMT_BEACON))
         {
-            limLog(pMac, LOG1, FL("RX MGMT - Type %hu, SubType %hu, Seq.no %d"),
-                    fc.type, fc.subType,
-                    ((pHdr->seqControl.seqNumHi << 4) | (pHdr->seqControl.seqNumLo)));
+            limLog(pMac, LOG1, FL("RX MGMT - Type %hu, SubType %hu,"
+                                  "Seq.no %d, Source mac-addr "
+                                  MAC_ADDRESS_STR), fc.type, fc.subType,
+                                  ((pHdr->seqControl.seqNumHi << 4) |
+                                   (pHdr->seqControl.seqNumLo)),
+                                  MAC_ADDR_ARRAY(pHdr->sa));
         }
 #ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
     if (WDA_GET_ROAMCANDIDATEIND(pRxPacketInfo))
@@ -1653,6 +1663,17 @@ limProcessMessages(tpAniSirGlobal pMac, tpSirMsgQ  limMsg)
             limMsg->bodyptr = NULL;
             break;
 
+#ifdef WLAN_FEATURE_RMC
+        case eWNI_SME_ENABLE_RMC_REQ:
+        case eWNI_SME_DISABLE_RMC_REQ:
+            /*
+             * These messages are from HDD
+             * No need to response to hdd
+             */
+            limProcessSmeReqMessages(pMac,limMsg);
+            break;
+#endif /* WLAN_FEATURE_RMC */
+
         case SIR_HAL_P2P_NOA_START_IND:
         {
             tpPESession psessionEntry = &pMac->lim.gpSession[0];
@@ -2234,6 +2255,8 @@ limProcessMessages(tpAniSirGlobal pMac, tpSirMsgQ  limMsg)
         {
             tpPESession     psessionEntry;
             tANI_U8         sessionId;
+            tDphHashNode   *pStaDs = NULL;
+            int i, aid;
             tTdlsLinkEstablishParams *pTdlsLinkEstablishParams;
             pTdlsLinkEstablishParams = (tTdlsLinkEstablishParams*) limMsg->bodyptr;
 
@@ -2253,10 +2276,32 @@ limProcessMessages(tpAniSirGlobal pMac, tpSirMsgQ  limMsg)
             }
             else
             {
-                limSendSmeTdlsLinkEstablishReqRsp(pMac,
+                for (i = 0;
+                     i < sizeof(psessionEntry->peerAIDBitmap)/sizeof(tANI_U32);
+                                                                i++) {
+                    for (aid = 0; aid < (sizeof(tANI_U32) << 3); aid++) {
+                        if (CHECK_BIT(psessionEntry->peerAIDBitmap[i], aid)) {
+                            pStaDs = dphGetHashEntry(pMac,
+                                           (aid + i*(sizeof(tANI_U32) << 3)),
+                                            &psessionEntry->dph.dphHashTable);
+                              if ((NULL != pStaDs) &&
+                                   (pTdlsLinkEstablishParams->staIdx ==
+                                                       pStaDs->staIndex))
+                                  goto send_link_resp;
+                        }
+                    }
+                }
+send_link_resp:
+                if (pStaDs)
+                   limSendSmeTdlsLinkEstablishReqRsp(pMac,
                                                   psessionEntry->smeSessionId,
-                                                  NULL,
-                                                  NULL,
+                                                  pStaDs->staAddr,
+                                                  pStaDs,
+                                                  pTdlsLinkEstablishParams->status) ;
+                else
+                   limSendSmeTdlsLinkEstablishReqRsp(pMac,
+                                                  psessionEntry->smeSessionId,
+                                                  NULL, NULL,
                                                   pTdlsLinkEstablishParams->status) ;
             }
             vos_mem_free((v_VOID_t *)(limMsg->bodyptr));
@@ -2268,6 +2313,8 @@ limProcessMessages(tpAniSirGlobal pMac, tpSirMsgQ  limMsg)
         {
             tpPESession     psessionEntry;
             tANI_U8         sessionId;
+            tDphHashNode   *pStaDs = NULL;
+            int i, aid;
             tTdlsChanSwitchParams *pTdlsChanSwitchParams;
             pTdlsChanSwitchParams = (tTdlsChanSwitchParams*) limMsg->bodyptr;
 
@@ -2287,11 +2334,33 @@ limProcessMessages(tpAniSirGlobal pMac, tpSirMsgQ  limMsg)
             }
             else
             {
-                limSendSmeTdlsChanSwitchReqRsp(pMac,
+                for (i = 0;
+                     i < sizeof(psessionEntry->peerAIDBitmap)/sizeof(tANI_U32);
+                                                                i++) {
+                    for (aid = 0; aid < (sizeof(tANI_U32) << 3); aid++) {
+                        if (CHECK_BIT(psessionEntry->peerAIDBitmap[i], aid)) {
+                            pStaDs = dphGetHashEntry(pMac,
+                                           (aid + i*(sizeof(tANI_U32) << 3)),
+                                            &psessionEntry->dph.dphHashTable);
+                              if ((NULL != pStaDs) &&
+                                   (pTdlsChanSwitchParams->staIdx ==
+                                                       pStaDs->staIndex))
+                                  goto send_chan_switch_resp;
+                        }
+                    }
+                }
+send_chan_switch_resp:
+                if (pStaDs)
+                    limSendSmeTdlsChanSwitchReqRsp(pMac,
                                                   psessionEntry->smeSessionId,
-                                                  NULL,
-                                                  NULL,
-                                                  pTdlsChanSwitchParams->status) ;
+                                                  pStaDs->staAddr,
+                                                  pStaDs,
+                                                  pTdlsChanSwitchParams->status);
+               else
+                    limSendSmeTdlsChanSwitchReqRsp(pMac,
+                                                  psessionEntry->smeSessionId,
+                                                  NULL, NULL,
+                                                  pTdlsChanSwitchParams->status);
             }
             vos_mem_free((v_VOID_t *)(limMsg->bodyptr));
             limMsg->bodyptr = NULL;
@@ -2310,6 +2379,28 @@ limProcessMessages(tpAniSirGlobal pMac, tpSirMsgQ  limMsg)
        limMsg->bodyptr = NULL;
        break;
     }
+#ifdef WLAN_FEATURE_RMC
+    case WDA_RMC_BECOME_RULER:
+        limProcessRMCMessages(pMac, eLIM_RMC_BECOME_RULER_RESP,
+                          (void *)limMsg->bodyptr);
+        vos_mem_free((v_VOID_t*)limMsg->bodyptr);
+        limMsg->bodyptr = NULL;
+        break ;
+
+    case WDA_RMC_RULER_SELECT_RESP:
+        limProcessRMCMessages(pMac, eLIM_RMC_RULER_SELECT_RESP,
+                          (void *)limMsg->bodyptr);
+        vos_mem_free((v_VOID_t*)limMsg->bodyptr);
+        limMsg->bodyptr = NULL;
+        break ;
+
+    case WDA_RMC_UPDATE_IND:
+        limProcessRMCMessages(pMac, eLIM_RMC_RULER_PICK_NEW,
+                          (void *)limMsg->bodyptr);
+        vos_mem_free((v_VOID_t*)limMsg->bodyptr);
+        limMsg->bodyptr = NULL;
+        break ;
+#endif /* WLAN_FEATURE_RMC */
 
     case WDA_SPOOF_MAC_ADDR_RSP:
        limProcessMlmSpoofMacAddrRsp(pMac, (tSirRetStatus)limMsg->bodyval);

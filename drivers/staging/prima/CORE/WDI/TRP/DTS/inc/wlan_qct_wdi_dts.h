@@ -93,6 +93,11 @@ typedef enum
    WDTS_POWER_STATE_MAX
 } WDTS_PowerStateType;
 
+typedef enum
+{
+   WDTS_LOGGING_STATUS_SUCCESS,
+   WDTS_LOGGING_STATUS_ERROR
+} WDTS_LoggingSessionStatus;
 
 typedef wpt_status (*WDTS_TxCompleteCbType)(void *pContext, wpt_packet *pFrame, wpt_status status);
 typedef wpt_status (*WDTS_RxFrameReadyCbType) (void *pContext, wpt_packet *pFrame, WDTS_ChannelType channel);
@@ -132,6 +137,7 @@ typedef struct {
                                WDTS_SetPSCbType cBack);
   void (*channelDebug)(wpt_boolean displaySnapshot,
                        wpt_uint8   debugFlags);
+  void (*kickDxe) (void);
   wpt_status (*stop) (void *pContext);
   wpt_status (*close) (void *pContext);
   wpt_uint32 (*getFreeTxDataResNumber) (void *pContext);
@@ -254,6 +260,15 @@ wpt_status WDTS_SetPowerState(void *pContext, WDTS_PowerStateType powerState,
  *
  */
 void WDTS_ChannelDebug(wpt_boolean displaySnapshot, wpt_uint8 debugFlags);
+
+/* DTS Transport Channel Kick Dxe
+ * Request Kick DXE when HDD TX timeout happen
+ *
+ * Parameters  : NONE
+ * Return Value: NONE
+ *
+ */
+void WDTS_ChannelKickDxe(void);
 
 /* DTS Stop function. 
  * Stop Transport driver, ie DXE, SDIO
