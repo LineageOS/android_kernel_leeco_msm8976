@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -155,7 +155,12 @@ eHalStatus csrTdlsSendMgmtReq(tHalHandle hHal, tANI_U8 sessionId, tCsrTdlsSendMg
 /*
  * TDLS request API, called from HDD to modify an existing TDLS peer
  */
-eHalStatus csrTdlsChangePeerSta(tHalHandle hHal, tANI_U8 sessionId, tSirMacAddr peerMac,
+eHalStatus csrTdlsChangePeerSta(tHalHandle hHal, tANI_U8 sessionId,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
+                                const tSirMacAddr peerMac,
+#else
+                                tSirMacAddr peerMac,
+#endif
                                 tCsrStaParams *pstaParams)
 {
     tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
@@ -228,9 +233,13 @@ eHalStatus csrTdlsChangePeerSta(tHalHandle hHal, tANI_U8 sessionId, tSirMacAddr 
  * TDLS request API, called from HDD to Send Link Establishment Parameters
  */
 VOS_STATUS csrTdlsSendLinkEstablishParams(tHalHandle hHal,
-                                                 tANI_U8 sessionId,
-                                                 tSirMacAddr peerMac,
-                                                 tCsrTdlsLinkEstablishParams *tdlsLinkEstablishParams)
+                                          tANI_U8 sessionId,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
+                                          const tSirMacAddr peerMac,
+#else
+                                          tSirMacAddr peerMac,
+#endif
+                                          tCsrTdlsLinkEstablishParams *tdlsLinkEstablishParams)
 {
     tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
     tSmeCmd *tdlsLinkEstablishCmd;
@@ -289,7 +298,13 @@ VOS_STATUS csrTdlsSendLinkEstablishParams(tHalHandle hHal,
 /*
  * TDLS request API, called from HDD to add a TDLS peer
  */
-eHalStatus csrTdlsAddPeerSta(tHalHandle hHal, tANI_U8 sessionId, tSirMacAddr peerMac)
+eHalStatus csrTdlsAddPeerSta(tHalHandle hHal, tANI_U8 sessionId,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
+                             const tSirMacAddr peerMac
+#else
+                             tSirMacAddr peerMac
+#endif
+                             )
 {
     tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
     tSmeCmd *tdlsAddStaCmd ;
@@ -330,7 +345,13 @@ eHalStatus csrTdlsAddPeerSta(tHalHandle hHal, tANI_U8 sessionId, tSirMacAddr pee
 /*
  * TDLS request API, called from HDD to delete a TDLS peer
  */
-eHalStatus csrTdlsDelPeerSta(tHalHandle hHal, tANI_U8 sessionId, tSirMacAddr peerMac)
+eHalStatus csrTdlsDelPeerSta(tHalHandle hHal, tANI_U8 sessionId,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
+                             const tSirMacAddr peerMac
+#else
+                             tSirMacAddr peerMac
+#endif
+)
 {
     tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
     tSmeCmd *tdlsDelStaCmd ;
@@ -892,6 +913,11 @@ eHalStatus tdlsMsgProcessor(tpAniSirGlobal pMac,  v_U16_t msgType,
             roamInfo.staId = delStaRsp->staId ;
             roamInfo.statusCode = delStaRsp->statusCode ;
 #endif
+            vos_mem_copy(&roamInfo.peerMac, linkEstablishReqRsp->peerMac,
+                                         sizeof(tSirMacAddr)) ;
+            roamInfo.staId  = (tANI_U8)linkEstablishReqRsp->sta_idx;
+            roamInfo.statusCode = linkEstablishReqRsp->statusCode;
+
             csrRoamCallCallback(pMac, linkEstablishReqRsp->sessionId, &roamInfo, 0,
                          eCSR_ROAM_TDLS_STATUS_UPDATE,
                                eCSR_ROAM_RESULT_LINK_ESTABLISH_REQ_RSP);
@@ -913,6 +939,19 @@ eHalStatus tdlsMsgProcessor(tpAniSirGlobal pMac,  v_U16_t msgType,
                                 eCSR_ROAM_TDLS_STATUS_UPDATE,
                                 eCSR_ROAM_RESULT_LINK_ESTABLISH_REQ_RSP);
 #endif
+            tSirTdlsChanSwitchReqRsp *ChanSwitchReqRsp =
+                            (tSirTdlsChanSwitchReqRsp *) pMsgBuf ;
+            tCsrRoamInfo roamInfo = {0} ;
+
+            vos_mem_copy(&roamInfo.peerMac, ChanSwitchReqRsp->peerMac,
+                         sizeof(tSirMacAddr));
+            roamInfo.staId  = (tANI_U8)ChanSwitchReqRsp->sta_idx;
+            roamInfo.statusCode = ChanSwitchReqRsp->statusCode;
+
+            csrRoamCallCallback(pMac, ChanSwitchReqRsp->sessionId, &roamInfo, 0,
+                                eCSR_ROAM_TDLS_STATUS_UPDATE,
+                                eCSR_ROAM_RESULT_CHANNEL_SWITCH_REQ_RSP);
+
             /* remove pending eSmeCommandTdlsChanSwitch command */
             csrTdlsRemoveSmeCmd(pMac, eSmeCommandTdlsChannelSwitch);
             break;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -295,6 +295,7 @@ tpDphHashNode dphInitStaState(tpAniSirGlobal pMac, tSirMacAddr staAddr,
 #ifdef WLAN_FEATURE_11W
     pStaDs->last_assoc_received_time = 0;
 #endif
+    pStaDs->sta_deletion_in_progress = false;
     pStaDs->valid = 1;
     return pStaDs;
 }
@@ -443,7 +444,7 @@ tSirRetStatus dphDeleteHashEntry(tpAniSirGlobal pMac, tSirMacAddr staAddr, tANI_
 #ifdef WLAN_FEATURE_11W
       ptr->last_assoc_received_time = 0;
 #endif
-
+      ptr->sta_deletion_in_progress = false;
       ptr->next = 0;
     }
   else
@@ -477,7 +478,7 @@ tSirRetStatus dphDeleteHashEntry(tpAniSirGlobal pMac, tSirMacAddr staAddr, tANI_
 void
 dphPrintMacAddr(tpAniSirGlobal pMac, tANI_U8 addr[], tANI_U32 level)
 {
-    limLog(pMac, (tANI_U16) level, FL("MAC ADDR = %d:%d:%d:%d:%d:%d"),
+    limLog(pMac, (tANI_U16) level, FL("MAC ADDR = %02x:%02x:%02x:%02x:%02x:%02x"),
            addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 }
 
