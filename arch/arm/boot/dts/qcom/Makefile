@@ -330,7 +330,7 @@ targets += dtbs
 targets += $(addprefix ../, $(DTB_LIST))
 endif
 
-$(obj)/../%.dtb: $(src)/%.dts FORCE
+$(obj)/../%.dtb: $(src)/dts/qcom/%.dts FORCE
 	$(call if_changed_dep,dtc)
 
 dtbs: $(addprefix $(obj)/../,$(DTB_LIST))
