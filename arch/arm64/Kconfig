@@ -713,4 +713,13 @@ source "arch/arm64/crypto/Kconfig"
 endif
 
 source "lib/Kconfig"
-source "arch/arm64/product_list/Kconfig"
+
+menu "LeEco product selection"
+
+config PRODUCT_S2
+	depends on ARCH_MSM8916
+	bool "PRODUCT_S2 Support"
+	help
+	  Fix version type as PRODUCT_S2
+
+endmenu
