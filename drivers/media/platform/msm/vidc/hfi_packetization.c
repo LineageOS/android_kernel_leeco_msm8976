@@ -635,6 +635,7 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_METADATA_MBI:
 		ret = HFI_PROPERTY_PARAM_VENC_MBI_DUMPING;
+		break;
 	case HAL_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI:
 		ret =
 		HFI_PROPERTY_PARAM_VDEC_MASTERING_DISPLAY_COLOUR_SEI_EXTRADATA;
@@ -2039,7 +2040,6 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VENC_VIDEO_SIGNAL_INFO:
 	{
-
 		struct hal_video_signal_info *hal = pdata;
 		struct hfi_video_signal_metadata *signal_info =
 			(struct hfi_video_signal_metadata *)
