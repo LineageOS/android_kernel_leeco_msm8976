@@ -39,9 +39,11 @@
 #include <linux/input.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
+#include <linux/proc_fs.h>
 #include <linux/regulator/consumer.h>
 #include "synaptics_dsx.h"
 #include "synaptics_dsx_core.h"
+#include "../../../fs/sysfs/sysfs.h"
 #ifdef KERNEL_ABOVE_2_6_38
 #include <linux/input/mt.h>
 #endif
@@ -117,6 +119,7 @@ bool tp_sleep_mode = false;
 #define F12_WAKEUP_GESTURE_MODE 0x02
 #define F12_UDG_DETECT 0x0f
 
+static char *synaptics_sysfs_pathname(struct sysfs_dirent *sd, char *path);
 static int synaptics_rmi4_check_status(struct synaptics_rmi4_data *rmi4_data,
 		bool *was_in_bl_mode);
 static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
@@ -632,6 +635,16 @@ static struct kobj_attribute virtual_key_map_attr = {
 	.show = synaptics_rmi4_virtual_key_map_show,
 };
 
+static char *synaptics_sysfs_pathname(struct sysfs_dirent *sd, char *path)
+{
+	if (sd->s_parent) {
+		synaptics_sysfs_pathname(sd->s_parent, path);
+		strlcat(path, "/", PATH_MAX);
+	}
+	strlcat(path, sd->s_name, PATH_MAX);
+	return path;
+}
+
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -823,6 +836,40 @@ static ssize_t synaptics_rmi4_virtual_key_map_show(struct kobject *kobj,
 	}
 
 	return count;
+}
+
+static int synaptics_rmi4_proc_init(struct sysfs_dirent *sysfs_dirent_parent)
+{
+	int ret = 0;
+	char *buf, *path = NULL;
+	char *key_disabler_sysfs_node;
+	struct proc_dir_entry *proc_entry_tp = NULL;
+	struct proc_dir_entry *proc_symlink_tmp  = NULL;
+
+	buf = kzalloc(PATH_MAX, GFP_KERNEL);
+	if (buf)
+		path = synaptics_sysfs_pathname(sysfs_dirent_parent, buf);
+
+	proc_entry_tp = proc_mkdir("touchpanel", NULL);
+	if (proc_entry_tp == NULL) {
+		ret = -ENOMEM;
+		pr_err("%s: Couldn't create touchpanel\n", __func__);
+	}
+
+	key_disabler_sysfs_node = kzalloc(PATH_MAX, GFP_KERNEL);
+	if (key_disabler_sysfs_node)
+		sprintf(key_disabler_sysfs_node, "/sys%s/%s", path, "0dbutton");
+
+	proc_symlink_tmp = proc_symlink("capacitive_keys_enable", proc_entry_tp, key_disabler_sysfs_node);
+	if (proc_symlink_tmp == NULL) {
+		ret = -ENOMEM;
+		pr_err("%s: Couldn't create capacitive_keys_enable symlink\n", __func__);
+	}
+
+	kfree(buf);
+	kfree(key_disabler_sysfs_node);
+
+	return ret;
 }
 
 static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
@@ -4085,14 +4132,14 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		INIT_LIST_HEAD(&exp_data.list);
 		exp_data.initialized = true;
 	}
-	#ifdef PINCTRL
+#ifdef PINCTRL
 	retval = synaptics_pinctrl_init(rmi4_data);
 	if (!retval && rmi4_data->synaptics_pinctrl) {
 		retval = pinctrl_select_state(rmi4_data->synaptics_pinctrl, rmi4_data->gpio_state_active);
 		if (retval < 0)
 			goto err_init_pinctrl;
 	}
-	#endif
+#endif
 	rmi4_data->irq = gpio_to_irq(bdata->irq_gpio);
 
 	retval = synaptics_rmi4_irq_enable(rmi4_data, true, false);
@@ -4133,6 +4180,8 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 			goto err_sysfs;
 		}
 	}
+
+	synaptics_rmi4_proc_init(rmi4_data->input_dev->dev.kobj.sd);
 
 	rmi4_data->rb_workqueue =
 			create_singlethread_workqueue("dsx_rebuild_workqueue");
