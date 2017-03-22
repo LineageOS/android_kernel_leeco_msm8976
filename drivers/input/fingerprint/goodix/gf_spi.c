@@ -701,6 +701,7 @@ static int gf_probe(struct platform_device *pdev)
 #endif
 		if (!ret) {
 			enable_irq_wake(gf_dev->irq);
+			gf_dev->irq_enabled = 1;
 			gf_disable_irq(gf_dev);
 		}
 	}
