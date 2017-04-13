@@ -615,15 +615,28 @@ static int msm_cpe_lab_thread(void *data)
 		goto done;
 	}
 
-	rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
-			    lab_d->pcm_buf[1].phys,
-			    hw_params->buf_sz, &lab_d->comp);
-	if (rc) {
-		dev_err(rtd->dev,
-			"%s: buf[0] slim_port_xfer failed, err = %d\n",
-			__func__, rc);
-		goto done;
-	}
+		rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
+				    lab_d->pcm_buf[1].phys,
+				    hw_params->buf_sz, &lab_d->comp);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: buf[0] slim_port_xfer failed, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
+		cur_buf = &lab_d->pcm_buf[0];
+		next_buf = &lab_d->pcm_buf[2];
+		prd_cnt = hw_params->period_count;
+		rc = lsm_ops->lab_ch_setup(cpe->core_handle,
+					   session,
+					   WCD_CPE_POST_ENABLE);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: POST ch setup failed, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
 
 	cur_buf = &lab_d->pcm_buf[0];
 	next_buf = &lab_d->pcm_buf[2];

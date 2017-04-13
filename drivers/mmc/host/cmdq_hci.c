@@ -145,17 +145,16 @@ static void cmdq_dump_adma_mem(struct cmdq_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
 	int tag = 0;
-	dma_addr_t paddr;
 	unsigned long data_active_reqs =
 		mmc->cmdq_ctx.data_active_reqs;
 	unsigned long desc_size =
 		(cq_host->mmc->max_segs * cq_host->trans_desc_len);
 
 	for_each_set_bit(tag, &data_active_reqs, cq_host->num_slots) {
-		paddr = get_trans_desc_dma(cq_host, tag);
-		pr_err("%s: %s: tag = %d, trans_dma(phys) = %pad, trans_desc(virt) = 0x%p\n",
+		pr_err("%s: %s: tag = %d, trans_dma(phys) = 0x%llx, trans_desc(virt) = 0x%p\n",
 				mmc_hostname(mmc), __func__, tag,
-				&paddr, get_trans_desc(cq_host, tag));
+				get_trans_desc_dma(cq_host, tag),
+				get_trans_desc(cq_host, tag));
 		print_hex_dump(KERN_ERR, "cmdq-adma:", DUMP_PREFIX_ADDRESS,
 				32, 8, get_trans_desc(cq_host, tag),
 				(desc_size), false);
@@ -365,9 +364,6 @@ static int cmdq_enable(struct mmc_host *mmc)
 	cq_host->enabled = true;
 	mmc_host_clr_cq_disable(mmc);
 
-	if (cq_host->ops->set_transfer_params)
-		cq_host->ops->set_transfer_params(mmc);
-
 	if (cq_host->ops->set_block_size)
 		cq_host->ops->set_block_size(cq_host->mmc);
 
@@ -394,9 +390,6 @@ static void cmdq_disable(struct mmc_host *mmc, bool soft)
 	}
 
 	mmc_host_set_cq_disable(mmc);
-	if (cq_host->ops->enhanced_strobe_mask)
-		cq_host->ops->enhanced_strobe_mask(mmc, false);
-
 	cq_host->enabled = false;
 }
 
