@@ -3034,8 +3034,10 @@ int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *config,
 	} else {
 		mdss_pp_res->pcc_disp_cfg[disp_num] = *config;
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PCC;
-		if(config->ops & MDP_PP_OPS_DEFER_ENABLE)
-			mdss_pp_res->pp_disp_flags[disp_num] &= ~PP_FLAGS_DIRTY_PCC;
+		if (config->ops & MDP_PP_OPS_DEFER_ENABLE) {
+			mdss_pp_res->pp_disp_flags[disp_num] &=
+				~PP_FLAGS_DIRTY_PCC;
+		}
 	}
 
 pcc_config_exit:
@@ -3236,8 +3238,10 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 		mdss_pp_res->igc_disp_cfg[disp_num].c2_data =
 			&mdss_pp_res->igc_lut_c2[disp_num][0];
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_IGC;
-		if(config->ops & MDP_PP_OPS_DEFER_ENABLE)
-			mdss_pp_res->pp_disp_flags[disp_num] &= ~PP_FLAGS_DIRTY_IGC;
+		if (config->ops & MDP_PP_OPS_DEFER_ENABLE) {
+			mdss_pp_res->pp_disp_flags[disp_num] &=
+				~PP_FLAGS_DIRTY_IGC;
+		}
 	}
 
 igc_config_exit:
@@ -3421,6 +3425,7 @@ int mdss_pp_dirty_flags_config(struct mdp_dirty_flag_cfg *config)
 {
 	int ret = 0;
 	u32 disp_num;
+
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 	mutex_lock(&mdss_pp_mutex);
 	mdss_pp_res->pp_disp_flags[disp_num] |= config->dirty_flag_mask;
@@ -3567,9 +3572,10 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 		else if (PP_LOCAT(config->block) == MDSS_PP_DSPP_CFG) {
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_PGC;
-			if(config->flags & MDP_PP_OPS_DEFER_ENABLE)
+			if (config->flags & MDP_PP_OPS_DEFER_ENABLE) {
 				mdss_pp_res->pp_disp_flags[disp_num] &=
-				    ~PP_FLAGS_DIRTY_PGC;
+					~PP_FLAGS_DIRTY_PGC;
+			}
 		}
 	}
 argc_config_exit:

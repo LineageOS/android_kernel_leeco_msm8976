@@ -985,10 +985,8 @@ static inline u64 scale_load_to_cpu(u64 task_load, int cpu)
 {
 	u64 lsf = cpu_load_scale_factor(cpu);
 
-	if (lsf != 1024) {
-		task_load *= (u64)lsf;
-		task_load /= 1024;
-	}
+	task_load *= (u64)lsf;
+	task_load /= 1024;
 
 	return task_load;
 }

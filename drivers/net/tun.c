@@ -1163,7 +1163,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
 			kfree_skb(skb);
 			return -EINVAL;
 		}
-	}
+	} else if (tun->flags & TUN_NOCHECKSUM)
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	if (!(tun->flags & TUN_NO_PI))
 		if (pi.flags & htons(CHECKSUM_UNNECESSARY))
@@ -1959,9 +1960,10 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
 	case TUNSETNOCSUM:
 		/* Disable/Enable checksum */
 
-		/* [unimplemented] */
-		tun_debug(KERN_INFO, tun, "ignored: set checksum %s\n",
-			  arg ? "disabled" : "enabled");
+		if (arg)
+			tun->flags |= TUN_NOCHECKSUM;
+		else
+			tun->flags &= ~TUN_NOCHECKSUM;
 		break;
 
 	case TUNSETPERSIST:

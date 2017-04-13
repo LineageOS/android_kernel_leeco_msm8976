@@ -1503,7 +1503,8 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt,
 			pingpong_bit);
 		if (rc == -EFAULT) {
-			pr_err("%s: get_buf fail\n", __func__);
+			msm_isp_halt_send_error(vfe_dev,
+				ISP_EVENT_BUF_FATAL_ERROR);
 			return rc;
 		}
 		if (rc < 0 || buf == NULL) {
