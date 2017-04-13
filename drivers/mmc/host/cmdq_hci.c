@@ -390,6 +390,9 @@ static void cmdq_disable(struct mmc_host *mmc, bool soft)
 	}
 
 	mmc_host_set_cq_disable(mmc);
+	if (cq_host->ops->enhanced_strobe_mask)
+		cq_host->ops->enhanced_strobe_mask(mmc, false);
+
 	cq_host->enabled = false;
 }
 

@@ -36,8 +36,6 @@
 #define CMI_CMD_TIMEOUT (10 * HZ)
 #define WCD_CPE_LSM_MAX_SESSIONS 1
 #define WCD_CPE_AFE_MAX_PORTS 4
-#define WCD_CPE_DRAM_SIZE 0x30000
-#define WCD_CPE_DRAM_OFFSET 0x50000
 #define AFE_SVC_EXPLICIT_PORT_START 1
 
 #define ELF_FLAG_EXECUTE (1 << 0)
@@ -4303,7 +4301,7 @@ done:
  *	      parameters are to be set
  */
 static int wcd_cpe_afe_set_params(void *core_handle,
-		struct wcd_cpe_afe_port_cfg *afe_cfg)
+		struct wcd_cpe_afe_port_cfg *afe_cfg, bool afe_mad_ctl)
 {
 	struct cpe_afe_params afe_params;
 	struct cpe_afe_hw_mad_ctrl *hw_mad_ctrl = &afe_params.hw_mad_ctrl;
@@ -4346,7 +4344,7 @@ static int wcd_cpe_afe_set_params(void *core_handle,
 	hw_mad_ctrl->param.p_size.sr.reserved = 0;
 	hw_mad_ctrl->minor_version = 1;
 	hw_mad_ctrl->mad_type = MAD_TYPE_AUDIO;
-	hw_mad_ctrl->mad_enable = 1;
+	hw_mad_ctrl->mad_enable = afe_mad_ctl;
 
 	port_cfg->param.module_id = CPE_AFE_MODULE_AUDIO_DEV_INTERFACE;
 	port_cfg->param.param_id = CPE_AFE_PARAM_ID_GENERIC_PORT_CONFIG;

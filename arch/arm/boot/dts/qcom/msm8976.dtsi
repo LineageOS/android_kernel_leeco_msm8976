@@ -2887,7 +2887,10 @@
 
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
-		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
+		pinctrl-names = "suspend", "active";
+		pinctrl-0 = <&cdc_reset_line_sus>;
+		pinctrl-1 = <&cdc_reset_line_act>;
 	};
 };
 

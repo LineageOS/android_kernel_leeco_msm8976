@@ -38,13 +38,10 @@
 			label = "cdc-reset-line";
 			cdc_reset_line_act: cdc_reset_line_on {
 				drive-strength = <16>;
-				bias-disable;
-				output-high;
 			};
 			cdc_reset_line_sus: cdc_reset_line_off {
-				drive-strength = <16>;
+				drive-strength = <2>;
 				bias-disable;
-				output-low;
 			};
 		};
 
