@@ -1,0 +1,6 @@
+#include "s2-panel-boe-nt36760-1080p-5p5boe-cmd.dtsi"
+#include "s2_panel_truly_r69006_1080p_5p5lg_cmd_ghost.dtsi"
+#include "s2_panel_truly_r69006_1080p_5p5lg_cmd_ap2.dtsi"
+#include "s2-panel-boe-nt35596s-1080p-5p5boe-vdo.dtsi"
+#include "s2-panel-truly-r69006-1080p-5p5lg-cmd.dtsi"
+#include "s2-panel-nt35596-1080p-video.dtsi"
