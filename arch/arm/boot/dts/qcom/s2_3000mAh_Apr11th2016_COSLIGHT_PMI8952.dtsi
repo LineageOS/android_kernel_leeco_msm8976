@@ -1,0 +1,51 @@
+
+qcom,S2_msm8952_coslight_3000mAh {
+	/* #2388262_s2_QL1531_3000mAh_averaged_MasterSlave_Apr11th2016*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <200>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "S2_msm8952_coslight_3000mAh";
+	qcom,fastchg-current-ma = <4500>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,chg-rslow-comp-c1 = <3995131>;
+	qcom,chg-rslow-comp-c2 = <7868012>;
+	qcom,chg-rs-to-rslow = <922803>;
+	qcom,chg-rslow-comp-thr = <0xBE>;
+	qcom,checksum = <0x91CB>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 F9 83 C3 7D
+		 D5 81 53 7C
+		 59 83 AA 5F
+		 FA 81 C4 8C
+		 24 82 89 99
+		 39 BC 5E C8
+		 5C 0F 08 88
+		 2D 7E 15 82
+		 8B 7C 52 83
+		 83 6A 97 78
+		 08 86 43 82
+		 C8 99 F4 BC
+		 BE C9 5B 0D
+		 67 0C 3D 59
+		 14 70 B2 FD
+		 3E 37 D2 44
+		 C6 3A 00 00
+		 A2 44 52 38
+		 26 44 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 8E 70 48 6B
+		 D0 5C DE 89
+		 13 7C 7D 71
+		 50 74 CC 73
+		 54 75 7F 6A
+		 9B 5C EA AA
+		 21 C4 62 0B
+		 65 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

@@ -1,0 +1,12 @@
+/*  Date            Author    	Why              jira
+*/
+
+/dts-v1/;
+#include "msm8976-v1.1.dtsi"
+#include "s2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8976 QRD SKUN";
+	compatible = "qcom,msm8976-qrd-skun", "qcom,msm8976-qrd", "qcom,msm8976", "qcom,qrd";
+	qcom,board-id= <0xb 0>;
+};

@@ -1,0 +1,62 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,S2_msm8952_3000mAh {
+	/* #2286637_s2_QL1531_3000mAh_averaged_MasterSlave_Jan18th2016*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <110>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "S2_msm8952_3000mAh";
+	qcom,fastchg-current-ma = <4500>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,chg-rslow-comp-c1 = <3334748>;
+	qcom,chg-rslow-comp-c2 = <5275136>;
+	qcom,chg-rs-to-rslow = <829071>;
+	qcom,chg-rslow-comp-thr = <0xAF>;
+	qcom,checksum = <0xF368>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 F0 83 64 7D
+		 98 81 28 7C
+		 5E 83 3D 6D
+		 CA 83 E4 8D
+		 E9 81 F8 99
+		 21 BC BD C3
+		 5B 12 F5 83
+		 24 7D 50 81
+		 AE 77 64 83
+		 ED 6C F9 88
+		 8A 94 18 82
+		 12 9A E9 BC
+		 8C C9 55 0E
+		 44 0C 10 5A
+		 14 70 B2 FD
+		 C9 3D 96 37
+		 5F 28 00 00
+		 96 45 45 39
+		 FD 36 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 2A 6B 69 6A
+		 59 71 4F 89
+		 F8 74 F8 68
+		 14 6D 76 79
+		 3F 74 0B 68
+		 47 79 27 C0
+		 0F 55 63 A7
+		 65 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

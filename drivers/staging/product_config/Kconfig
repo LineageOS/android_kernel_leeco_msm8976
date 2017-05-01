@@ -1,0 +1,6 @@
+config PRODUCT_S2
+	depends on ARCH_MSM8916
+	bool "PRODUCT_S2 Support"
+	default n
+	---help---
+	  Fix version type as PRODUCT_S2
