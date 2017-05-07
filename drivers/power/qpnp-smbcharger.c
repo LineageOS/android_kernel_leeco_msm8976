@@ -411,15 +411,6 @@ enum battchg_enable_voters {
 	NUM_BATTCHG_EN_VOTERS,
 };
 
-extern bool chg_flag;
-extern int aw2013_usb_state;
-enum led_id{
-	GREEN = 0,
-	RED,
-	BLUE,
-};
-extern bool userspace_led_ctl;
-extern void aw2013_set_RGB_led_brightness(int led_num,int brightness);
 struct timer_list adc_init_timer;
 
 bool is_detecting_usb_type = 0;
@@ -4163,7 +4154,6 @@ static void smbchg_current_adjust_work(struct work_struct *work)
 		chip->thermal_count = 1;
 	}
 
-	chg_flag = true;
 	get_prop_batt_capacity(chip);
 	//power_supply_changed(&chip->batt_psy);
 
@@ -4669,13 +4659,8 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 	int rc;
-	pr_err("handle_usb_removal triggered\n");
+
 	usb_enumeration_failed = 1;
-	if(!userspace_led_ctl)
-	{
-		userspace_led_ctl = 1;
-		aw2013_set_RGB_led_brightness(RED,0);
-	}
 	chip->weak_charger_counter = 0;
 	if(chip->dc_chg_lock){
 		printk("%s,release usb_removal_wake_lock:stop charging\n",__func__);
@@ -4684,8 +4669,9 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		usb_ac_present = 0;
 	}
 	chip->i_prev = 0;
-    aw2013_usb_state = 0;
 	chip->weak_charger_flag = false;
+
+	pr_smb(PR_STATUS, "triggered\n");
 	smbchg_aicl_deglitch_wa_check(chip);
 	if (chip->force_aicl_rerun && !chip->very_weak_charger) {
 		rc = smbchg_hw_aicl_rerun_en(chip, true);
@@ -4765,7 +4751,7 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	enum power_supply_type usb_supply_type;
 	int rc;
 	char *usb_type_name = "null";
-	pr_err("handle_usb_insertion triggered\n");
+
 	usb_enumeration_failed = 1;
 	if(!chip->dc_chg_lock){
 		printk("%s,add usb_insertion_wake_lock:begin charging\n",__func__);
@@ -4773,7 +4759,8 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		chip->dc_chg_lock=true;
 		usb_ac_present = 1;
 	}
-    aw2013_usb_state = 1;
+
+	pr_smb(PR_STATUS, "triggered\n");
 	/* usb inserted */
 	read_usb_type(chip, &usb_type_name, &usb_supply_type);
 	pr_smb(PR_STATUS,
