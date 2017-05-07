@@ -154,6 +154,7 @@
 				compatible = "awinic,aw2013";
 				reg = <0x45>;
 				vdd-supply = <&pm8950_l10>;
+				vcc-supply = <&pm8950_l5>;
 
 				aw2013,green {
 						aw2013,name = "green";
