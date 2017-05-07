@@ -297,15 +297,6 @@ struct qpnp_wled {
 	bool prev_state;
 };
 
-enum led_id{
-	GREEN = 0,
-	RED,
-	BLUE,
-};
-extern int aw2013_sleep_led;
-extern int aw2013_usb_state;
-extern void aw2013_set_RGB_led_brightness(int led_num,int brightness);
-
 /* helper to read a pmic register */
 static int qpnp_wled_read_reg(struct qpnp_wled *wled, u8 *data, u16 addr)
 {
@@ -737,14 +728,12 @@ static struct device_attribute qpnp_wled_attrs[] = {
 			qpnp_wled_ramp_step_show,
 			qpnp_wled_ramp_step_store),
 };
-static int qpnp_wled_config(struct qpnp_wled *wled);
 
 /* worker for setting wled brightness */
 static void qpnp_wled_work(struct work_struct *work)
 {
 	struct qpnp_wled *wled;
 	int level, rc;
-	static int wled_config_flag = 0;
 
 	wled = container_of(work, struct qpnp_wled, work);
 
@@ -753,10 +742,6 @@ static void qpnp_wled_work(struct work_struct *work)
 	mutex_lock(&wled->lock);
 
 	if (level) {
-		if(wled_config_flag==0){
-			qpnp_wled_config(wled);
-			wled_config_flag = 1;
-		}
 		rc = qpnp_wled_set_level(wled, level);
 		if (rc) {
 			dev_err(&wled->spmi->dev, "wled set level failed\n");
@@ -771,21 +756,6 @@ static void qpnp_wled_work(struct work_struct *work)
 			dev_err(&wled->spmi->dev, "wled %sable failed\n",
 						level ? "en" : "dis");
 			goto unlock_mutex;
-		}
-	}
-	//printk("begin to control sleep led\n");
-	if(aw2013_sleep_led && !aw2013_usb_state)
-	{
-		//printk("sleep led feature enable\n");
-		if(level)
-		{
-			aw2013_set_RGB_led_brightness(RED,0);
-			//printk("sleep led open\n");
-		}
-		else
-		{
-			aw2013_set_RGB_led_brightness(RED,255);
-			//printk("sleep led close\n");
 		}
 	}
 
@@ -1618,13 +1588,12 @@ static int qpnp_wled_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "DT parsing failed\n");
 		return rc;
 	}
-#if 0
+
 	rc = qpnp_wled_config(wled);
 	if (rc) {
 		dev_err(&spmi->dev, "wled config failed\n");
 		return rc;
 	}
-#endif
 
 	mutex_init(&wled->lock);
 	INIT_WORK(&wled->work, qpnp_wled_work);
@@ -1650,7 +1619,7 @@ static int qpnp_wled_probe(struct spmi_device *spmi)
 			goto sysfs_fail;
 		}
 	}
-	qpnp_wled_set(&wled->cdev,WLED_MAX_LEVEL_4095);
+
 	return 0;
 
 sysfs_fail:
