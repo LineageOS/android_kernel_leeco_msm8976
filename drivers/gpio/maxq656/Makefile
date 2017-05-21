@@ -1,0 +1,1 @@
+obj-$(CONFIG_INFRARED_MAXQ656)		+= maxq656.o

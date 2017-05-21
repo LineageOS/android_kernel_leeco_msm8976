@@ -730,4 +730,9 @@ config GPIO_VIPERBOARD
           River Tech's viperboard.h for detailed meaning
           of the module parameters.
 
+config INFRARED_MAXQ656
+	tristate "Dialog MAXQ656 GPIO"
+	help
+	  Say yes here to enable the GPIO driver for the MAXQ656 chip.
+
 endif
