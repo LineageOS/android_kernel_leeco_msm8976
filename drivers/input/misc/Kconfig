@@ -863,5 +863,15 @@ config SENSORS_ISL29044A
 	help
 	 This option enables support for the INTERSIL ISL29044A P/L sensor.
 
+config SENSORS_DRV2604L
+	tristate "drv2604L sensor driver"
+	depends on I2C
+	default n
+	help
+	Say Y here if you want to enable the drv2604L ecompass sensor
+	driver.
+	To compile this driver as a module, choose M here: the
+	module will be called drv2604l.
+
 endif
 
