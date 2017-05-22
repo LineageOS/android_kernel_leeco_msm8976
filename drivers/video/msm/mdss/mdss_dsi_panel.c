@@ -181,11 +181,23 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
+#ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
+static char led_pwm1[3] = {0x51, 0x0F, 0xFF};	/* DTYPE_DCS_WRITE1 */
+static char led_diming_mode[2] = {0x53, 0x2c};	/* DTYPE_DCS_WRITE1 */
+static char led_cabc_mode[2] = {0x55, 0x03};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc backlight_cmd[] = {
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_diming_mode)},led_diming_mode},
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_cabc_mode)},led_cabc_mode},
+	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm1)},led_pwm1},
+};
+
+#else
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc backlight_cmd = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
 	led_pwm1
 };
+#endif
 
 static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
@@ -200,11 +212,21 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	pr_debug("%s: level=%d\n", __func__, level);
 
+#ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
+	led_pwm1[1] = (unsigned char)(level>>8);
+	led_pwm1[2] = (unsigned char)level&0x0FF;
+#else
 	led_pwm1[1] = (unsigned char)level;
+#endif
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
+#ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
+	cmdreq.cmds = backlight_cmd;
+	cmdreq.cmds_cnt = 3;
+#else
 	cmdreq.cmds = &backlight_cmd;
 	cmdreq.cmds_cnt = 1;
+#endif
 	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
@@ -660,6 +682,9 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
 		break;
 	case BL_DCS_CMD:
+#ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
+		led_trigger_event(bl_led_trigger, bl_level);
+#endif
 		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
 			mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
 			break;
@@ -1903,6 +1928,12 @@ int mdss_panel_parse_bl_settings(struct device_node *np,
 								 __func__);
 			}
 		} else if (!strcmp(data, "bl_ctrl_dcs")) {
+#ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
+			led_trigger_register_simple("bkl-trigger",
+				&bl_led_trigger);
+			pr_debug("%s: SUCCESS-> WLED TRIGGER register\n",
+				__func__);
+#endif
 			ctrl_pdata->bklt_ctrl = BL_DCS_CMD;
 			pr_debug("%s: Configured DCS_CMD bklt ctrl\n",
 								__func__);
@@ -1915,6 +1946,11 @@ void mdss_dsi_unregister_bl_settings(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	if (ctrl_pdata->bklt_ctrl == BL_WLED)
 		led_trigger_unregister_simple(bl_led_trigger);
+
+#ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
+	if (ctrl_pdata->bklt_ctrl == BL_DCS_CMD)
+		led_trigger_unregister_simple(bl_led_trigger);
+#endif
 }
 
 int mdss_dsi_panel_timing_switch(struct mdss_dsi_ctrl_pdata *ctrl,
