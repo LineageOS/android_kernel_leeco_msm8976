@@ -288,6 +288,9 @@ struct msm8x16_wcd_priv {
 	bool clock_active;
 	bool config_mode_active;
 	u16 boost_option;
+#ifdef CONFIG_SND_SOC_LEECO
+	bool Smart_PA_I2S_set;
+#endif
 	bool spk_boost_set;
 	bool ear_pa_boost_set;
 	bool ext_spk_boost_set;
@@ -312,6 +315,10 @@ extern int msm8x16_wcd_hs_detect(struct snd_soc_codec *codec,
 		    struct wcd_mbhc_config *mbhc_cfg);
 
 extern void msm8x16_wcd_hs_detect_exit(struct snd_soc_codec *codec);
+
+#ifdef CONFIG_SND_SOC_LEECO
+extern int msm_q6_enable_mi2s(struct snd_soc_codec *codec, bool enable);
+#endif
 
 extern void msm8x16_wcd_spk_ext_pa_cb(
 		int (*codec_spk_ext_pa)(struct snd_soc_codec *codec,

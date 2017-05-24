@@ -30,7 +30,11 @@
 
 #define MAX_NUM_IRQS 14
 #define NUM_IRQ_REGS 2
+#ifdef CONFIG_SND_SOC_LEECO
+#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 1500
+#else
 #define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 700
+#endif
 
 #define BYTE_BIT_MASK(nr) (1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr) ((nr) / BITS_PER_BYTE)

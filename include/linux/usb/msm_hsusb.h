@@ -488,6 +488,9 @@ struct msm_otg {
 #define MHL	        17
 #define B_FALSE_SDP	18
 	unsigned long inputs;
+#ifdef CONFIG_FB
+	struct notifier_block fb_notif;
+#endif
 	struct work_struct sm_work;
 	bool sm_work_pending;
 	atomic_t pm_suspended;
