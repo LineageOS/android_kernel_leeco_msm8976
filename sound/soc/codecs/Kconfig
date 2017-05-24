@@ -579,6 +579,12 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 	HDMI audio drivers should be built only if the platform
         supports hdmi panel.
 
+config SND_SOC_LEECO
+	depends on SND_SOC
+	bool "Enable LeEco sound hacks"
+	---help---
+	Enables LeEco specific sound hacks
+
 config SND_SOC_SMART_PA_TFA9890
 	tristate "SMARTPA TFA9890 AUDIO"
 	depends on I2C

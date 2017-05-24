@@ -32,6 +32,9 @@ enum {
 };
 
 struct wcd_mbhc;
+#ifdef CONFIG_SND_SOC_LEECO
+extern bool is_type_c_headset_inserted;
+#endif
 enum wcd_mbhc_register_function {
 	WCD_MBHC_L_DET_EN,
 	WCD_MBHC_GND_DET_EN,
@@ -392,10 +395,15 @@ struct wcd_mbhc {
 	bool is_extn_cable;
 	bool skip_imped_detection;
 	bool is_btn_already_regd;
-
+#ifdef CONFIG_SND_SOC_LEECO
+	int hph_det_gpio;
+#endif
 	struct snd_soc_codec *codec;
 	/* Work to perform MBHC Firmware Read */
 	struct delayed_work mbhc_firmware_dwork;
+#ifdef CONFIG_SND_SOC_LEECO
+	struct delayed_work headset_bootup_insert_work;
+#endif
 	const struct firmware *mbhc_fw;
 	struct firmware_cal *mbhc_cal;
 
@@ -495,6 +503,9 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			   uint32_t *zr);
 void wcd_mbhc_deinit(struct wcd_mbhc *mbhc);
+#ifdef CONFIG_SND_SOC_LEECO
+void wcd_mbhc_mech_plug_detect(void);
+#endif
 #else
 static inline void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 {

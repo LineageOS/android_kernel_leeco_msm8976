@@ -1,0 +1,31 @@
+config USB_TYPE_C_LEECO
+	bool "Enable LeEco type-c support"
+	---help---
+	Enables LeEco specific type-c driver support
+
+config TYPE_C_INFO
+	tristate "get usb type-c info"
+	depends on USB_TYPE_C_LEECO
+	default n
+	help
+	  get the usb type-c info, provide kernel node interface.
+
+config USB_EXT_TYPE_C_TI_LEECO
+	tristate "USB Type-C charger detection support using TI chip"
+	depends on I2C && POWER_SUPPLY && USB_TYPE_C_LEECO
+	help
+	  Enables support for the USB Type-C chargers using external
+	  TI chip connected using I2C.
+
+	  This adds support for detecting USB Type-C chargers that
+	  can supply upto 3A Vbus current for charging.
+
+config USB_EXT_TYPE_C_NXP_LEECO
+	tristate "USB Type-C charger detection support using NXP chip"
+	depends on I2C && POWER_SUPPLY && USB_TYPE_C_LEECO
+	help
+	  Enables support for the USB Type-C chargers using external
+	  NXP chip connected using I2C.
+
+	  This adds support for detecting USB Type-C chargers that
+	  can supply upto 3A Vbus current for charging.

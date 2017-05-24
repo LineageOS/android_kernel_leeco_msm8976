@@ -31,6 +31,17 @@
 #include "wcd-mbhc-v2.h"
 #include "wcdcal-hwdep.h"
 
+#ifdef CONFIG_USB_TYPE_C_LEECO
+#include "../../../drivers/misc/type-c-leeco/type-c-ti.h"
+#include "../../../drivers/misc/type-c-leeco/type-c-nxp.h"
+#endif
+
+#ifdef CONFIG_SND_SOC_LEECO
+static struct wcd_mbhc *mbhc_data = NULL;
+bool is_type_c_headset_inserted = false;
+static bool is_headset_inserted_or_removed = false;
+#endif
+
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
 			   SND_JACK_MECHANICAL | SND_JACK_MICROPHONE2 | \
@@ -45,6 +56,9 @@
 #define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
+#ifdef CONFIG_USB_TYPE_C_LEECO
+#define MAX_BTN_PRESS_COUNT 4
+#endif
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
 #define HS_VREF_MIN_VAL 1400
 #define FW_READ_ATTEMPTS 15
@@ -57,6 +71,9 @@
 #define WCD_MBHC_SPL_HS_CNT  1
 
 static int det_extn_cable_en;
+#ifdef CONFIG_USB_TYPE_C_LEECO
+static bool is_headphone_inserted = false;
+#endif
 module_param(det_extn_cable_en, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(det_extn_cable_en, "enable/disable extn cable detect");
@@ -890,6 +907,13 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 
 	WCD_MBHC_REG_READ(WCD_MBHC_ELECT_RESULT, swap_res);
 	pr_debug("%s: swap_res%x\n", __func__, swap_res);
+#ifdef CONFIG_USB_TYPE_C_LEECO
+	if ((0xe == swap_res) || (0xa == swap_res)) {
+		is_headphone_inserted = true;
+	} else {
+		is_headphone_inserted = false;
+	}
+#endif
 
 	/*
 	 * Read reg hphl and hphr schmitt result with cross connection
@@ -1564,6 +1588,40 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 	pr_debug("%s: leave\n", __func__);
 }
+
+#ifdef CONFIG_SND_SOC_LEECO
+void wcd_mbhc_mech_plug_detect(void)
+{
+	struct wcd_mbhc *mbhc = mbhc_data;
+	pr_info("%s: enter\n", __func__);
+
+	if(NULL == mbhc_data)
+	{
+		pr_err("%s: bootup insert headset. \n", __func__);
+		return;
+	}
+
+	if (is_headset_inserted_or_removed == is_type_c_headset_inserted) {
+		return;
+	}
+	is_headset_inserted_or_removed	 = is_type_c_headset_inserted;
+	pr_info("%s: headset status: %s\n", __func__, is_headset_inserted_or_removed? "inserted" : "removed");
+
+	if (is_type_c_headset_inserted) {
+		gpio_direction_output(mbhc->hph_det_gpio, 0);
+	} else {
+		gpio_direction_output(mbhc->hph_det_gpio, 1);
+	}
+
+	pr_info("%s: leave \n", __func__);
+	return;
+}
+
+static void headset_bootup_insert_worker(struct work_struct *work)
+{
+	wcd_mbhc_mech_plug_detect();
+}
+#endif
 
 static irqreturn_t wcd_mbhc_mech_plug_detect_irq(int irq, void *data)
 {
@@ -2289,6 +2347,38 @@ void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 }
 EXPORT_SYMBOL(wcd_mbhc_stop);
 
+#ifdef CONFIG_SND_SOC_LEECO
+static int is_hph_det_gpio_support(struct snd_soc_card *card, struct wcd_mbhc *pdata)
+{
+	int ret;
+	const char *hph_det_gpio = "qcom,headset-detect-gpios";
+
+	pr_debug("%s:Enter\n", __func__);
+
+	pdata->hph_det_gpio = of_get_named_gpio(card->dev->of_node,
+				hph_det_gpio, 0);
+
+	if (pdata->hph_det_gpio < 0) {
+		pr_err("%s: missing %s in dt node\n", __func__, hph_det_gpio);
+	} else {
+		if (!gpio_is_valid(pdata->hph_det_gpio)) {
+			pr_err("%s: Invalid headset detect gpio: %d",
+				__func__, pdata->hph_det_gpio);
+			return -EINVAL;
+		} else {
+			ret = gpio_request(pdata->hph_det_gpio,
+							   "hph_det_gpio");
+			if (ret) {
+				pr_err("failed to request hph_det gpio\n");
+				return ret;
+			}
+			return 0;
+		}
+	}
+	return 0;
+}
+#endif
+
 /*
  * wcd_mbhc_init : initialize MBHC internal structures.
  *
@@ -2348,6 +2438,13 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 			__func__);
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_SND_SOC_LEECO
+	ret = is_hph_det_gpio_support(card, mbhc);
+	if (ret < 0)
+		pr_debug("%s:  doesn't support headset detect gpio\n",
+				__func__);
+#endif
 
 	/* Check if IRQ and other required callbacks are defined or not */
 	if (!mbhc_cb || !mbhc_cb->request_irq || !mbhc_cb->irq_control ||
@@ -2482,6 +2579,13 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		       mbhc->intr_ids->hph_right_ocp);
 		goto err_hphr_ocp_irq;
 	}
+
+#ifdef CONFIG_SND_SOC_LEECO
+	INIT_DELAYED_WORK(&mbhc->headset_bootup_insert_work,
+		headset_bootup_insert_worker);
+	schedule_delayed_work(&mbhc->headset_bootup_insert_work,
+				msecs_to_jiffies(3000));
+#endif
 
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
