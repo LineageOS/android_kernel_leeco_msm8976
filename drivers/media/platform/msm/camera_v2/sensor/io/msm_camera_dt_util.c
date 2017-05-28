@@ -1097,7 +1097,28 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 	} else {
 		rc = 0;
 	}
-
+#ifdef CONFIG_MSMB_CAMERA_LEECO
+	rc = of_property_read_u32(of_node, "qcom,gpio-cameraid", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-cameraid failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,qcom,gpio-cameraid invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_ID] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_ID] = 1;
+		CDBG("%s qcom,gpio-cameraid %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_ID]);
+	} else {
+		rc = 0;
+	}
+#endif
 	return rc;
 
 ERROR:
