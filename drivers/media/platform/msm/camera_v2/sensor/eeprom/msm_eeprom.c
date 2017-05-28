@@ -26,6 +26,94 @@ DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
 #endif
 
+#ifdef CONFIG_MSMB_CAMERA_LEECO
+extern int msm_sensor_module_info_set(enum msm_sensor_camera_id_t position, char* module_info);
+/**
+  * msm_eeprom_match_module - match module from otp data
+  * @e_ctrl:	msm_eeprom_ctrl_t
+  *
+  * Returns 0 if match, -EINVAL otherwise.
+  */
+static int msm_eeprom_match_module(struct device_node *of, struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint32_t otp_mid_index = 0;
+	uint32_t otp_group_count = 0;
+	uint32_t otp_mid_value = 0;
+	uint32_t otp_data_num = 0;
+	uint32_t otp_sensor_position = 0;
+	int i,rc = 0;
+	char eeprom_name[MAX_SENSOR_NAME] = "\0";
+	char property[PROPERTY_MAXSIZE];
+
+	CDBG("%s:EEE", __func__);
+	snprintf(property, PROPERTY_MAXSIZE, "oem,otp-group-count");
+	rc = of_property_read_u32(of, property, &otp_group_count);
+	CDBG("%s: %s %d\n", __func__, property, otp_group_count);
+	if (rc < 0)
+	{
+		pr_err("%s failed rc %d\n", __func__, rc);
+		goto END;
+	}
+
+	snprintf(property, PROPERTY_MAXSIZE, "oem,otp-mid-value");
+	rc = of_property_read_u32(of, property, &otp_mid_value);
+	CDBG("%s: %s %d\n", __func__, property, otp_mid_value);
+	if (rc < 0)
+	{
+		pr_err("%s failed rc %d\n", __func__, rc);
+		goto END;
+	}
+
+	snprintf(property, PROPERTY_MAXSIZE, "oem,otp-data-num");
+	rc = of_property_read_u32(of, property, &otp_data_num);
+	CDBG("%s: %s %d\n", __func__, property, otp_data_num);
+	if (rc < 0)
+	{
+		pr_err("%s failed rc %d\n", __func__, rc);
+		goto END;
+	}
+
+	snprintf(property, PROPERTY_MAXSIZE, "oem,otp-sensor-position");
+	rc = of_property_read_u32(of, property, &otp_sensor_position);
+	CDBG("%s: %s %d\n", __func__, property, otp_sensor_position);
+	if (rc < 0 || otp_sensor_position<CAMERA_0 || otp_sensor_position>CAMERA_1)
+	{
+		pr_err("%s failed rc %d\n", __func__, rc);
+		goto END;
+	}
+
+	memcpy(eeprom_name, e_ctrl->eboard_info->eeprom_name, strlen(e_ctrl->eboard_info->eeprom_name));
+	CDBG("%s,eeprom name:%s\n", __func__, eeprom_name);
+	if(e_ctrl->cal_data.num_data == otp_data_num)
+	{
+		for(i=0;i<otp_group_count;i++)
+		{
+			snprintf(property, PROPERTY_MAXSIZE, "oem,otp-mid-index%d", i);
+			rc = of_property_read_u32(of, property, &otp_mid_index);
+			CDBG("%s: %s[%d] %d\n", __func__, property, i, otp_mid_index);
+			if (rc < 0)
+			{
+				pr_err("%s failed rc %d\n", __func__, rc);
+				goto END;
+			}
+			if(e_ctrl->cal_data.mapdata[otp_mid_index] == otp_mid_value)
+			{
+				CDBG("%s,will to set module info for sunny_imx219_d8n02a\n", __func__);
+				rc = msm_sensor_module_info_set(otp_sensor_position, eeprom_name);
+				if(rc < 0)
+					pr_err("%s msm_sensor_module_info_set failed rc %d\n", __func__, rc);
+				else
+					break;
+			}
+		}
+	}
+
+ END:
+	CDBG("%s:XXX", __func__);
+	return rc;
+}
+#endif
+
 /**
   * msm_get_read_mem_size - Get the total size for allocation
   * @eeprom_map_array:	mem map
@@ -1727,6 +1815,12 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		for (j = 0; j < e_ctrl->cal_data.num_data; j++)
 			CDBG("memory_data[%d] = 0x%X\n", j,
 				e_ctrl->cal_data.mapdata[j]);
+
+#ifdef CONFIG_MSMB_CAMERA_LEECO
+		rc = msm_eeprom_match_module(of_node, e_ctrl);
+		if(rc < 0)
+			pr_err("%s : to set camera module info with otp data fail!!", __func__);
+#endif
 
 		e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
 

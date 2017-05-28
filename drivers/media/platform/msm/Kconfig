@@ -34,6 +34,12 @@ menuconfig MSMB_CAMERA
 	  adds support for the camera driver stack including sensor, isp
 	  and postprocessing drivers.
 
+menuconfig MSMB_CAMERA_LEECO
+	bool "LeEco MSM camera support"
+	depends on MSMB_CAMERA
+	---help---
+	  Say Y here to enable LeEco MSM camera support
+
 config MSMB_CAMERA_DEBUG
 	bool "Qualcomm MSM camera 2.0 debugging with printk"
 	depends on MSMB_CAMERA

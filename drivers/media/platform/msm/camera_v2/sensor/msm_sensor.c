@@ -215,6 +215,9 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	struct msm_camera_slave_info *slave_info;
 	const char *sensor_name;
+#ifdef CONFIG_MSMB_CAMERA_LEECO
+	int pin_cameraid_value = 0;
+#endif
 
 	if (!s_ctrl) {
 		pr_err("%s:%d failed: %pK\n",
@@ -247,6 +250,21 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 				__func__, chipid, slave_info->sensor_id);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_MSMB_CAMERA_LEECO
+	if(s_ctrl->sensordata->power_info.gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_ID]){
+		pin_cameraid_value = gpio_get_value(s_ctrl->sensordata->power_info.gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_ID]);
+		CDBG("get gpio camera id value :%d\n", pin_cameraid_value);
+		CDBG("get lib.c camera id value :%d\n", s_ctrl->sensordata->sensor_gpio_id);
+		if((0xff != s_ctrl->sensordata->sensor_gpio_id ) && (pin_cameraid_value != s_ctrl->sensordata->sensor_gpio_id) )
+		{
+			pr_err("msm_sensor_match_id  pin camerid doesnot match\n");
+			pr_err("gpio camera id value is %d\n",pin_cameraid_value);
+			pr_err("lib.c camera id value is %d\n",s_ctrl->sensordata->sensor_gpio_id);
+			return -ENODEV;
+		}
+	}
+#endif
 	return rc;
 }
 
