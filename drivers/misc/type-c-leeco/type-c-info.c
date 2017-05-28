@@ -197,7 +197,7 @@ int cclogic_get_audio_mode(void)
 	return audio_mode;
 }
 
-static DEVICE_ATTR(supported_dev, 0666, letv_supported_dev_show, NULL);
+static DEVICE_ATTR(supported_dev, 0444, letv_supported_dev_show, NULL);
 
 static int typec_get_notifier(struct notifier_block *self,unsigned long action, void *data);
 static struct notifier_block typec_get_notif = {
