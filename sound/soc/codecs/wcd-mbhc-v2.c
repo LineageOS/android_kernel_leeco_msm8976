@@ -52,18 +52,10 @@ static bool is_headset_inserted_or_removed = false;
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
 				  SND_JACK_BTN_6 | SND_JACK_BTN_7)
 #define OCP_ATTEMPT 1
-#ifdef CONFIG_USB_TYPE_C_LEECO
 #define HS_DETECT_PLUG_TIME_MS (1000)
 #define SPECIAL_HS_DETECT_TIME_MS (1000)
-#else
-#define HS_DETECT_PLUG_TIME_MS (3 * 1000)
-#define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
-#endif
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
-#ifdef CONFIG_USB_TYPE_C_LEECO
-#define MAX_BTN_PRESS_COUNT 4
-#endif
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
 #define HS_VREF_MIN_VAL 1400
 #define FW_READ_ATTEMPTS 15
@@ -71,7 +63,11 @@ static bool is_headset_inserted_or_removed = false;
 #define FAKE_REM_RETRY_ATTEMPTS 3
 #define MAX_IMPED 60000
 
+#ifdef CONFIG_USB_TYPE_C_LEECO
+#define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  500
+#else
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
+#endif
 #define ANC_DETECT_RETRY_CNT 7
 #define WCD_MBHC_SPL_HS_CNT  1
 
@@ -616,6 +612,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
+#ifdef CONFIG_USB_TYPE_C_LEECO
+		is_headphone_inserted = false;
+#endif
 	} else {
 		/*
 		 * Report removal of current jack type.
@@ -664,6 +663,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 						SND_JACK_LINEOUT |
 						SND_JACK_ANC_HEADPHONE |
 						SND_JACK_UNSUPPORTED);
+#ifdef CONFIG_USB_TYPE_C_LEECO
+			is_headphone_inserted = false;
+#endif
 		}
 
 		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET &&
@@ -1166,11 +1168,6 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	int rc, spl_hs_count = 0;
 	int cross_conn;
 	int try = 0;
-#ifdef CONFIG_USB_TYPE_C_LEECO
-	int gnd_mic_swap_cnt = 0;
-	int btn_press_count = 0;
-	int headphone_correct_cnt = 1;
-#endif
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1182,7 +1179,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	 * This work will get scheduled from detect_plug_type which
 	 * will already request for pullup/micbias. If the pullup/micbias
 	 * is handled with ref-counts by individual codec drivers, there is
-	 * no need to enabale micbias/pullup here
+	 * no need to enable micbias/pullup here
 	 */
 
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
@@ -1207,13 +1204,16 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			msecs_to_jiffies(WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS));
 
 	WCD_MBHC_REG_READ(WCD_MBHC_BTN_RESULT, btn_result);
+	pr_debug("%s: WCD_MBHC_BTN_RESULT: btn_result = %u\n", __func__, btn_result);
 	WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
+	pr_debug("%s: WCD_MBHC_HS_COMP_RESULT: hs_comp_res = %u\n", __func__, hs_comp_res);
 
 	if (!rc) {
 		pr_debug("%s No btn press interrupt\n", __func__);
 		if (!btn_result && !hs_comp_res) {
 #ifdef CONFIG_USB_TYPE_C_LEECO
 			if (is_headphone_inserted) {
+				pr_debug("%s: is_headphone_inserted -> MBHC_PLUG_TYPE_HEADPHONE\n", __func__);
 				plug_type = MBHC_PLUG_TYPE_HEADPHONE;
 			} else {
 #endif
@@ -1221,39 +1221,34 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 #ifdef CONFIG_USB_TYPE_C_LEECO
 			}
 #endif
-		} else if (!btn_result && hs_comp_res)
+		} else if (!btn_result && hs_comp_res) {
 #ifdef CONFIG_SND_SOC_LEECO
+			pr_debug("%s: MBHC_PLUG_TYPE_HIGH_HPH -> MBHC_PLUG_TYPE_HEADPHONE\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
 #else
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 #endif
-		else
+		} else {
 			plug_type = MBHC_PLUG_TYPE_INVALID;
+		}
 	} else {
-		if (!btn_result && !hs_comp_res)
+		if (!btn_result && !hs_comp_res) {
+			pr_debug("%s: !btn_result && !hs_comp_res -> MBHC_PLUG_TYPE_HEADPHONE\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
-		else
+		} else {
 			plug_type = MBHC_PLUG_TYPE_INVALID;
+		}
 	}
 
 	do {
 		cross_conn = wcd_check_cross_conn(mbhc);
-#ifdef CONFIG_USB_TYPE_C_LEECO
-		if (cross_conn > 0) {
-			gnd_mic_swap_cnt++;
-		}
-#endif
 		try++;
 	} while (try < GND_MIC_SWAP_THRESHOLD);
 	/*
-	 * check for cross coneection 4 times.
+	 * check for cross connection 4 times.
 	 * conisder the result of the fourth iteration.
 	 */
-#ifdef CONFIG_USB_TYPE_C_LEECO
-	if (gnd_mic_swap_cnt == GND_MIC_SWAP_THRESHOLD) {
-#else
 	if (cross_conn > 0) {
-#endif
 		pr_debug("%s: cross con found, start polling\n",
 			 __func__);
 		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
@@ -1262,20 +1257,6 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		goto correct_plug_type;
 	}
 
-#ifdef CONFIG_USB_TYPE_C_LEECO
-correct_headphone:
-	if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
-		WCD_MBHC_RSC_LOCK(mbhc);
-		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
-		WCD_MBHC_RSC_UNLOCK(mbhc);
-	} else if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
-		if (mbhc->mbhc_cfg->swap_gnd_mic &&
-				mbhc->mbhc_cfg->swap_gnd_mic(codec)) {
-				pr_debug("%s: US_EU gpio present, flip switch\n"
-					, __func__);
-		}
-	}
-#else
 	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	     plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
 	    (!wcd_swch_level_remove(mbhc))) {
@@ -1283,7 +1264,6 @@ correct_headphone:
 		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
-#endif
 
 correct_plug_type:
 
@@ -1302,11 +1282,9 @@ correct_plug_type:
 			goto exit;
 		}
 		if (mbhc->btn_press_intr) {
+			pr_debug("%s: btn_press_intr\n", __func__);
 			wcd_cancel_btn_work(mbhc);
 			mbhc->btn_press_intr = false;
-#ifdef CONFIG_SND_SOC_LEECO
-			btn_press_count++;
-#endif
 		}
 		/* Toggle FSM */
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
@@ -1404,13 +1382,13 @@ correct_plug_type:
 		if (hs_comp_res && !(hphl_sch || mic_sch)) {
 			pr_debug("%s: cable is extension cable\n", __func__);
 #ifdef CONFIG_USB_TYPE_C_LEECO
-			pr_debug("%s: cancel the MBHC_PLUG_TYPE_HIGH_HP,change into MBHC_PLUG_TYPE_HEADSET\n", __func__);
+			pr_debug("%s: cancel the MBHC_PLUG_TYPE_HIGH_HP, change into MBHC_PLUG_TYPE_HEADSET\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HEADSET;
-			goto report;
 #else
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
-			wrk_complete = true;
 #endif
+			wrk_complete = true;
+
 		} else {
 			pr_debug("%s: cable might be headset: %d\n", __func__,
 					plug_type);
@@ -1437,11 +1415,7 @@ correct_plug_type:
 			wrk_complete = false;
 		}
 	}
-#ifdef CONFIG_SND_SOC_LEECO
-	if (!wrk_complete && mbhc->btn_press_intr && (btn_press_count >= MAX_BTN_PRESS_COUNT)) {
-#else
 	if (!wrk_complete && mbhc->btn_press_intr) {
-#endif
 		pr_debug("%s: Can be slow insertion of headphone\n", __func__);
 		wcd_cancel_btn_work(mbhc);
 		plug_type = MBHC_PLUG_TYPE_HEADPHONE;
@@ -1454,11 +1428,7 @@ correct_plug_type:
 	    (plug_type == MBHC_PLUG_TYPE_ANC_HEADPHONE))) {
 		pr_debug("%s: plug_type:0x%x already reported\n",
 			 __func__, mbhc->current_plug);
-#ifdef CONFIG_USB_TYPE_C_LEECO
-		goto report;
-#else
 		goto enable_supply;
-#endif
 	}
 
 	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH &&
@@ -1482,14 +1452,8 @@ report:
 	WCD_MBHC_RSC_LOCK(mbhc);
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
-#ifdef CONFIG_USB_TYPE_C_LEECO
-	if ((plug_type == MBHC_PLUG_TYPE_HEADPHONE) && (headphone_correct_cnt--)) {
-		btn_press_count = 0;
-		goto correct_headphone;
-	}
-#else
+
 enable_supply:
-#endif
 	if (mbhc->mbhc_cb->mbhc_micbias_control)
 		wcd_mbhc_update_fsm_source(mbhc, plug_type);
 	else
@@ -2044,7 +2008,7 @@ static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 
 	/* If switch interrupt already kicked in, ignore button press */
 	if (mbhc->in_swch_irq_handler) {
-		pr_debug("%s: Swtich level changed, ignore button press\n",
+		pr_debug("%s: Switch level changed, ignore button press\n",
 			 __func__);
 		goto done;
 	}
@@ -2092,6 +2056,7 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 	 * headset not headphone.
 	 */
 	if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
+		pr_debug("%s: Got button release intr, report MBHC_PLUG_TYPE_HEADSET\n", __func__);
 		wcd_mbhc_find_plug_and_report(mbhc, MBHC_PLUG_TYPE_HEADSET);
 		goto exit;
 
