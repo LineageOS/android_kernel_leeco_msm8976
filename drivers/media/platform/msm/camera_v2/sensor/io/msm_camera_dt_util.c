@@ -34,7 +34,7 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 
 	/* Validate input parameters */
 	if (!cam_vreg || !power_setting) {
-		pr_err("%s:%d failed: cam_vreg %pK power_setting %pK", __func__,
+		pr_err("%s:%d failed: cam_vreg %p power_setting %p", __func__,
 			__LINE__,  cam_vreg, power_setting);
 		return -EINVAL;
 	}
@@ -1097,7 +1097,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 	} else {
 		rc = 0;
 	}
-#ifdef CONFIG_MSMB_CAMERA_LEECO
+/*Begin added by yangyongfeng to add check pin value of camera id  (ql1530) 20151221 */
 	rc = of_property_read_u32(of_node, "qcom,gpio-cameraid", &val);
 	if (rc != -EINVAL) {
 		if (rc < 0) {
@@ -1118,7 +1118,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 	} else {
 		rc = 0;
 	}
-#endif
+/*End added by yangyongfeng to add check pin value of camera id  (ql1530) 20151221 */
 	return rc;
 
 ERROR:
@@ -1309,7 +1309,7 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 
 	CDBG("%s:%d\n", __func__, __LINE__);
 	if (!ctrl || !sensor_i2c_client) {
-		pr_err("failed ctrl %pK sensor_i2c_client %pK\n", ctrl,
+		pr_err("failed ctrl %p sensor_i2c_client %p\n", ctrl,
 			sensor_i2c_client);
 		return -EINVAL;
 	}
@@ -1534,7 +1534,7 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 
 	CDBG("%s:%d\n", __func__, __LINE__);
 	if (!ctrl || !sensor_i2c_client) {
-		pr_err("failed ctrl %pK sensor_i2c_client %pK\n", ctrl,
+		pr_err("failed ctrl %p sensor_i2c_client %p\n", ctrl,
 			sensor_i2c_client);
 		return -EINVAL;
 	}
