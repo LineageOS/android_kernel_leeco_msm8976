@@ -691,16 +691,7 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 			rc = -EFAULT;
 			break;
 		}
-		if ((csiphy_dev->is_combo_mode == 1) &&
-			(csiphy_dev->ref_count == 2)) {
-		/*CSIPHY is running in Combo mode do not power down core*/
-			pr_err("%s: %d CSIPHY%d core is running in combo"\
-				"mode so power down for next csiphy_release",
-				__func__, __LINE__, csiphy_dev->pdev->id);
-			csiphy_dev->ref_count--;
-		} else {
-			rc = msm_csiphy_release(csiphy_dev, &csi_lane_params);
-		}
+		rc = msm_csiphy_release(csiphy_dev, &csi_lane_params);
 		break;
 	default:
 		pr_err("%s: %d failed\n", __func__, __LINE__);
