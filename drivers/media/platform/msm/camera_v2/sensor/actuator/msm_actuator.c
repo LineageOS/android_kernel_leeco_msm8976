@@ -517,12 +517,6 @@ static int32_t msm_actuator_piezo_move_focus(
 		return -EFAULT;
 	}
 
-	if (dest_step_position > a_ctrl->total_steps) {
-		pr_err("Step pos greater than total steps = %d\n",
-			dest_step_position);
-		return -EFAULT;
-	}
-
 	a_ctrl->i2c_tbl_index = 0;
 	a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
 		(num_steps *
@@ -857,13 +851,6 @@ static int32_t msm_actuator_bivcm_init_step_table(
 	uint32_t qvalue = 0;
 	CDBG("Enter\n");
 
-	/* validate the actuator state */
-	if (a_ctrl->actuator_state != ACT_OPS_ACTIVE) {
-		pr_err("%s:%d invalid actuator_state %d\n"
-			, __func__, __LINE__, a_ctrl->actuator_state);
-		return -EINVAL;
-	}
-
 	for (; data_size > 0; data_size--) {
 		max_code_size *= 2;
 		mask |= (1 << i++);
@@ -958,11 +945,11 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 			, __func__, __LINE__, a_ctrl->actuator_state);
 		return -EINVAL;
 	}
-
-       for (; data_size > 0; data_size--)
+	for (; data_size > 0; data_size--)
 		max_code_size *= 2;
 
 	a_ctrl->max_code_size = max_code_size;
+
 	/* free the step_position_table to allocate a new one */
 	kfree(a_ctrl->step_position_table);
 	a_ctrl->step_position_table = NULL;
@@ -1144,7 +1131,6 @@ static int32_t msm_actuator_set_position(
 	}
 
 	a_ctrl->i2c_tbl_index = 0;
-	hw_params = set_pos->hw_params;
 	for (index = 0; index < set_pos->number_of_steps; index++) {
 		next_lens_position = set_pos->pos[index];
 		delay = set_pos->delay[index];
@@ -1389,11 +1375,7 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 {
 	struct msm_actuator_cfg_data *cdata =
 		(struct msm_actuator_cfg_data *)argp;
-	int32_t rc = -EINVAL;
-	if (a_ctrl == NULL) {
-		pr_err("ERROR: a_ctrl is NULL");
-		return -EFAULT;
-	}
+	int32_t rc = 0;
 	mutex_lock(a_ctrl->actuator_mutex);
 	CDBG("Enter\n");
 	CDBG("%s type %d\n", __func__, cdata->cfgtype);
@@ -1403,7 +1385,7 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 		a_ctrl->actuator_state == ACT_DISABLE_STATE) {
 		pr_err("actuator disabled %d\n", rc);
 		mutex_unlock(a_ctrl->actuator_mutex);
-		return rc;
+		return -EINVAL;
 	}
 
 	switch (cdata->cfgtype) {
@@ -1415,7 +1397,6 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 	case CFG_GET_ACTUATOR_INFO:
 		cdata->is_af_supported = 1;
 		cdata->cfg.cam_name = a_ctrl->cam_name;
-		rc = 0;
 		break;
 
 	case CFG_SET_ACTUATOR_INFO:
@@ -1425,19 +1406,15 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 		break;
 
 	case CFG_SET_DEFAULT_FOCUS:
-		if (a_ctrl->func_tbl &&
-			a_ctrl->func_tbl->actuator_set_default_focus)
-			rc = a_ctrl->func_tbl->actuator_set_default_focus(
-				a_ctrl, &cdata->cfg.move);
+		rc = a_ctrl->func_tbl->actuator_set_default_focus(a_ctrl,
+			&cdata->cfg.move);
 		if (rc < 0)
 			pr_err("move focus failed %d\n", rc);
 		break;
 
 	case CFG_MOVE_FOCUS:
-		if (a_ctrl->func_tbl &&
-			a_ctrl->func_tbl->actuator_move_focus)
-			rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl,
-				&cdata->cfg.move);
+		rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl,
+			&cdata->cfg.move);
 		if (rc < 0)
 			pr_err("move focus failed %d\n", rc);
 		break;
@@ -1448,10 +1425,12 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 		break;
 
 	case CFG_SET_POSITION:
-		if (a_ctrl->func_tbl &&
-			a_ctrl->func_tbl->actuator_set_position)
+		if (a_ctrl != NULL && a_ctrl->func_tbl != NULL)
 			rc = a_ctrl->func_tbl->actuator_set_position(a_ctrl,
 				&cdata->cfg.setpos);
+		else
+			rc = -EFAULT;
+
 		if (rc < 0)
 			pr_err("actuator_set_position failed %d\n", rc);
 		break;
@@ -1562,13 +1541,11 @@ static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 			pr_err("a_ctrl->i2c_client.i2c_func_tbl NULL\n");
 			return -EINVAL;
 		} else {
-			mutex_lock(a_ctrl->actuator_mutex);
 			rc = msm_actuator_power_down(a_ctrl);
 			if (rc < 0) {
 				pr_err("%s:%d Actuator Power down failed\n",
 					__func__, __LINE__);
 			}
-			mutex_unlock(a_ctrl->actuator_mutex);
 			return msm_actuator_close(sd, NULL);
 		}
 	default:

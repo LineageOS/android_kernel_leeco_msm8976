@@ -1503,7 +1503,8 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt,
 			pingpong_bit);
 		if (rc == -EFAULT) {
-			pr_err("%s: get_buf fail\n", __func__);
+			msm_isp_halt_send_error(vfe_dev,
+				ISP_EVENT_BUF_FATAL_ERROR);
 			return rc;
 		}
 		if (rc < 0 || buf == NULL) {
@@ -1743,10 +1744,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				/* Update the framedrop count and flag only for
 					controllable_output */
 				num_bufq = buf->bufq_handle & 0xFF;
-				if (num_bufq < BUF_MGR_NUM_BUF_Q) {
-					vfe_dev->error_info.
-						stream_framedrop_count[num_bufq]++;
-				}
+				vfe_dev->error_info.
+					stream_framedrop_count[num_bufq]++;
 				vfe_dev->error_info.framedrop_flag = 1;
 				return;
 			}
@@ -2713,20 +2712,6 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		} else
 			src_mask |= (1 << intf);
 
-		if (wait_for_complete_for_this_stream &&
-			(stream_info->stream_src == RDI_INTF_0 ||
-			stream_info->stream_src == RDI_INTF_1 ||
-			stream_info->stream_src == RDI_INTF_2) &&
-			((vfe_dev->axi_data.
-				src_info[VFE_PIX_0].pix_stream_count == 0) &&
-				(vfe_dev->axi_data.
-				src_info[VFE_PIX_0].raw_stream_count == 0))) {
-			/*We have only RDI stream.. Issue Reg update forcefully */
-			ISP_DBG("%s: Issuing reg update forcefully frame id %d\n", __func__,
-				vfe_dev->axi_data.src_info[SRC_TO_INTF(stream_info->stream_src)].frame_id);
-			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(
-				vfe_dev, SRC_TO_INTF(stream_info->stream_src));
-		}
 	}
 
 	if (src_mask) {
@@ -3367,11 +3352,6 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				&vfe_dev->common_data->common_dev_axi_lock,
 				axi_flags);
 
-			if (rc == -EFAULT) {
-				msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_BUF_FATAL_ERROR);
-				return;
-			}
 			if (done_buf && !rc)
 				msm_isp_process_done_buf(vfe_dev, stream_info,
 					done_buf, ts);
