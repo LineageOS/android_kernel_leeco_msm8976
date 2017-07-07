@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017 The Linux Foundation. All rights reserved.
  * Copyright (c) 2017 The LineageOS Project
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
@@ -10665,6 +10665,8 @@ void hdd_wlan_exit(hdd_context_t *pHddCtx)
        vos_timer_stop(&pHddCtx->tdls_source_timer);
    }
 
+   vos_set_snoc_high_freq_voting(false);
+
    vos_timer_destroy(&pHddCtx->tdls_source_timer);
 
    //Disable IMPS/BMPS as we do not want the device to enter any power
@@ -11979,7 +11981,7 @@ int hdd_wlan_startup(struct device *dev )
       if(!VOS_IS_STATUS_SUCCESS( status ))
       {
          hddLog(VOS_TRACE_LEVEL_FATAL,"%s: vos_watchdog_open failed",__func__);
-         goto err_wdclose;
+         goto err_config;
       }
    }
 

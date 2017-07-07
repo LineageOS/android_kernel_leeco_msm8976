@@ -103,6 +103,13 @@ void limStopTxAndSwitchChannel(tpAniSirGlobal pMac, tANI_U8 sessionId)
       return;
     }
 
+    if(pMac->ft.ftPEContext.pFTPreAuthReq)
+    {
+        limLog(pMac, LOGE,
+           FL("Avoid Switch Channel req during pre auth"));
+        return;
+    }
+
     limLog(pMac, LOG1, FL("Channel switch Mode == %d"),
                        psessionEntry->gLimChannelSwitch.switchMode);
 
@@ -1218,7 +1225,10 @@ __limValidateDelBAParameterSet( tpAniSirGlobal pMac,
     tDot11fFfDelBAParameterSet baParameterSet,
     tpDphHashNode pSta )
 {
-tSirMacStatusCodes statusCode = eSIR_MAC_STA_BLK_ACK_NOT_SUPPORTED_STATUS;
+    tSirMacStatusCodes statusCode = eSIR_MAC_STA_BLK_ACK_NOT_SUPPORTED_STATUS;
+
+    if (!(baParameterSet.tid < STACFG_MAX_TC))
+        return statusCode;
 
   // Validate if a BA is active for the requested TID
     if( pSta->tcCfg[baParameterSet.tid].fUseBATx ||
