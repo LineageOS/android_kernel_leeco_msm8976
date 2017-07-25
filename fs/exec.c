@@ -1485,6 +1485,8 @@ static int do_execve_common(const char *filename,
 	int retval;
 	const struct cred *cred = current_cred();
 
+	bool is_su;
+
 	/*
 	 * We move the actual failure in case of RLIMIT_NPROC excess from
 	 * set*uid() to execve() because too many poorly written programs
@@ -1561,10 +1563,13 @@ static int do_execve_common(const char *filename,
 		goto out;
 
 	retval = search_binary_handler(bprm);
+	/* exec_binprm can release file and it may be freed */
+	is_su = d_is_su(file->f_dentry);
+
 	if (retval < 0)
 		goto out;
 
-	if (d_is_su(file->f_dentry) && capable(CAP_SYS_ADMIN)) {
+	if (is_su && capable(CAP_SYS_ADMIN)) {
 		current->flags |= PF_SU;
 		su_exec();
 	}
