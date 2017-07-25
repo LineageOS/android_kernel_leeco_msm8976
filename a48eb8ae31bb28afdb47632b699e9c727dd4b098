@@ -1,0 +1,39 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e4cfe574_a5330476",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 16082
+      },
+      "writtenOn": "2017-07-25T18:18:48Z",
+      "side": 1,
+      "message": "Eh",
+      "revId": "a48eb8ae31bb28afdb47632b699e9c727dd4b098",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "a3f6d5d3_e75ce608",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 16082
+      },
+      "writtenOn": "2017-07-25T18:18:48Z",
+      "side": 1,
+      "message": "Needs a new line between L7 and L8",
+      "parentUuid": "",
+      "revId": "a48eb8ae31bb28afdb47632b699e9c727dd4b098",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
