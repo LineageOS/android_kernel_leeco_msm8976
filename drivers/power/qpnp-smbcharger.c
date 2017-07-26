@@ -2943,8 +2943,12 @@ static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
 
 	if (rc)
 		dev_err(chip->dev, "Couldn't set float voltage rc = %d\n", rc);
+<<<<<<< HEAD
 	else
 	{
+=======
+	else{
+>>>>>>> 3884b1c0a43f36e8f31d0d6c4439f504c1010af3
 		chip->vfloat_mv = vfloat_mv;
 		power_supply_set_voltage_limit(chip->usb_psy,
  				chip->vfloat_mv * 1000);
