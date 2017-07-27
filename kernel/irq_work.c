@@ -109,17 +109,16 @@ EXPORT_SYMBOL_GPL(irq_work_queue);
 
 bool irq_work_needs_cpu(void)
 {
-	struct llist_head *raised, *lazy;
-
-	raised = &__get_cpu_var(raised_list);
-	lazy = &__get_cpu_var(lazy_list);
-	if (llist_empty(raised) && llist_empty(lazy))
-		return false;
-
-	/* All work should have been flushed before going offline */
-	WARN_ON_ONCE(cpu_is_offline(smp_processor_id()));
-
-	return true;
+	struct llist_head *this_list;
+  
+  	this_list = &__get_cpu_var(irq_work_list);
+ 	if (llist_empty_relaxed(this_list))
+  		return false;
+  
+  	/* All work should have been flushed before going offline */
+ 	WARN_ON_ONCE(cpu_is_offline(smp_processor_id()));
+ 
+ 	return true;
 }
 
 static void irq_work_run_list(struct llist_head *list)
