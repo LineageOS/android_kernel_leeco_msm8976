@@ -212,8 +212,15 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	pr_debug("%s: level=%d\n", __func__, level);
 
 #ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
-	led_pwm1[1] = (unsigned char)(level>>8);
-	led_pwm1[2] = (unsigned char)level&0x0FF;
+	// For truly-r69006-1080p-5p5lg panels
+	if (pinfo->panel_supply_order == 2) {
+		led_pwm1[1] = (unsigned char)(level>>4);
+		led_pwm1[2] = 0;
+		mdelay(40);
+	} else {
+		led_pwm1[1] = (unsigned char)(level>>8);
+		led_pwm1[2] = (unsigned char)level&0x0FF;
+	}
 #else
 	led_pwm1[1] = (unsigned char)level;
 #endif
@@ -1915,6 +1922,12 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		return -EINVAL;
 	}
 	pinfo->yres = (!rc ? tmp : 480);
+
+#ifdef CONFIG_FB_MSM_MDSS_BACKLIGHT_LEECO
+	rc = of_property_read_u32(np,
+		"qcom,mdss-dsi-panel-supply", &tmp);
+	pinfo->panel_supply_order = (!rc ? tmp : 0);
+#endif
 
 	rc = of_property_read_u32(np,
 		"qcom,mdss-pan-physical-width-dimension", &tmp);
