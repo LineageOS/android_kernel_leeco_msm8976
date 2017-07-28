@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ffaf3036_65ea9739",
+        "filename": "kernel/rcu/tree.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 979,
+      "author": {
+        "id": 17985
+      },
+      "writtenOn": "2017-07-28T04:17:34Z",
+      "side": 1,
+      "message": "Check this",
+      "revId": "a1c37fbac2dae6462b196408dcdac3b9b7442263",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "88837b5c_a73a5a82",
+        "filename": "kernel/rcu/tree.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 1005,
+      "author": {
+        "id": 17985
+      },
+      "writtenOn": "2017-07-28T04:17:34Z",
+      "side": 1,
+      "message": "and this",
+      "revId": "a1c37fbac2dae6462b196408dcdac3b9b7442263",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
