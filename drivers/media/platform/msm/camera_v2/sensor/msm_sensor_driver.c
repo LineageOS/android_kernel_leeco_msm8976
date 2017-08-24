@@ -21,6 +21,9 @@
 #ifdef CONFIG_MSMB_CAMERA_LEECO
 #include "msm_sensor_module_info.h"
 #endif
+#ifdef CONFIG_GET_HARDWARE_INFO
+#include <asm/hardware_info.h>
+#endif
 
 /* Logging macro */
 #undef CDBG
@@ -970,6 +973,24 @@ CSID_TG:
 #endif
 
 	pr_err("%s probe succeeded", slave_info->sensor_name);
+
+#ifdef CONFIG_GET_HARDWARE_INFO
+	if(slave_info->sensor_init_params.position == BACK_CAMERA_B){
+		if(slave_info->sensor_module_info){
+			register_hardware_info(MAIN_CAM, slave_info->sensor_module_info);
+		}else{
+			pr_err("%s hardware info is NULL.\n",slave_info->sensor_name);
+		}
+	}else if(slave_info->sensor_init_params.position == FRONT_CAMERA_B){
+		if(slave_info->sensor_module_info){
+			register_hardware_info(SUB_CAM, slave_info->sensor_module_info);
+		}else{
+			pr_err("%s hardware info is NULL.\n",slave_info->sensor_name);
+		}
+	}else{
+		pr_err("%s register hardware info failed.\n",slave_info->sensor_name);
+	}
+#endif
 
 	/*
 	  Set probe succeeded flag to 1 so that no other camera shall

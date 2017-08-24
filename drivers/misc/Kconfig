@@ -645,6 +645,12 @@ config UID_CPUTIME
 	help
 	  Per UID based cpu time statistics exported to /proc/uid_cputime
 
+config GET_HARDWARE_INFO
+	tristate "get hardware devices info"
+	default y
+	help
+	  get the devices info, provide interface.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

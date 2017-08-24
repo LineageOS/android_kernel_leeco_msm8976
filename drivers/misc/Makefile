@@ -71,3 +71,4 @@ obj-$(CONFIG_USB_EXT_TYPE_C_PERICOM)	+= type-c-pericom.o
 obj-$(CONFIG_USB_EXT_TYPE_C_TI)		+= type-c-ti.o
 obj-$(CONFIG_UID_CPUTIME) 	+= uid_cputime.o
 obj-$(CONFIG_USB_TYPE_C_LEECO)		+= type-c-leeco/
+obj-$(CONFIG_GET_HARDWARE_INFO)		+= hardware_info.o

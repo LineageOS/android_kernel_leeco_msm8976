@@ -26,6 +26,56 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 
+#ifdef CONFIG_GET_HARDWARE_INFO
+#include <asm/hardware_info.h>
+#include <soc/qcom/smsm.h>
+static char tmp_flash_name[100];
+#define MCP_SAMSUNG_MANIFACTURE_ID 0x15
+#define MCP_HYNIX_MANIFACTURE_ID 0x90
+#define MCP_MICRON_MANIFACTURE_ID 0x13
+#define MCP_KINGSTON_MANIFACTURE_ID 0x70
+#define MCP_TOSHIBA_MANIFACTURE_ID 0x11
+
+#define SAMSUNG_ID   1
+#define ELPIDA_ID     3
+#define HYNIX_ID     6
+#define MICRON_ID 255
+
+#define APP_INFO_NAME_LENTH 32
+#define APP_INFO_VALUE_LENTH 32
+
+#define DDR_SIZE_ORDER_MAX 35 //32Gbit , 4GB
+#define DDR_SIZE_ORDER_MIN 30 // 1Gbit,125MB
+#define DDR_SIZE_MAX (0x1<<(DDR_SIZE_ORDER_MAX - 30))
+#define DDR_SIZE_MIN (0x1<<(DDR_SIZE_ORDER_MIN - 30))
+
+/** DDR types. */
+typedef enum
+{
+	DDR_TYPE_LPDDR1, /**< Low power DDR1. */
+	DDR_TYPE_LPDDR2 = 2, /**< Low power DDR2 set to 2 for compatibility*/
+	DDR_TYPE_PCDDR2, /**< Personal computer DDR2. */
+	DDR_TYPE_PCDDR3, /**< Personal computer DDR3. */
+
+	DDR_TYPE_LPDDR3, /**< Low power DDR3. */
+
+	DDR_TYPE_RESERVED, /**< Reserved for future use. */
+	DDR_TYPE_UNUSED = 0x7FFFFFFF /**< For compatibility with deviceprogrammer(features not using DDR). */
+} DDR_TYPE;
+
+/* ddr_info.h is store the value of ddr info */
+typedef struct
+{
+	unsigned int lpddrID;                  /* DDR ID */
+	unsigned int update_flag[2];           /* sd auto update flag */
+	unsigned char sb_seme_data[16];
+	unsigned int debug;
+	unsigned int pwrkpd_reset;
+	unsigned int oba;
+	unsigned int reserved;                  /* reserved for filling */
+}smem_exten_paramater;
+#endif
+
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -1499,6 +1549,105 @@ static int mmc_select_cmdq(struct mmc_card *card)
 out:
 	return ret;
 }
+#if defined(CONFIG_GET_HARDWARE_INFO)
+void export_ddr_info(unsigned int ddr_vendor_id,unsigned int ddr_size, unsigned int ddr_type, char *ddr_info_all)
+{
+	char * ddr_info = NULL;
+	char *SAMSUNG_DDR = "SAMSUNG";
+	char *ELPIDA_DDR = "ELPIDA";
+	char *HYNIX_DDR  = "HYNIX";
+	char *MICRON_DDR = "MICRON";
+	char ddr_size_info[8];
+	char *ddr_type_info;
+
+	switch (ddr_vendor_id)
+	{
+		case SAMSUNG_ID:
+			ddr_info = SAMSUNG_DDR;
+			break;
+		case ELPIDA_ID:
+			ddr_info = ELPIDA_DDR;
+			break;
+		case HYNIX_ID:
+			ddr_info = HYNIX_DDR;
+			break;
+		case MICRON_ID:
+			ddr_info = MICRON_DDR;
+			break;
+		default:
+			ddr_info = "UNKNOWN";
+			break;
+	}
+	/* workaround for 6gbit devices of SAMSUNG as they do not calculate correctly with normal
+	 * calculation based on row\col\bank size and can not compatile the "0x1<<(ddr_size1-30)"*/
+
+	if( ddr_size >= DDR_SIZE_MIN && ddr_size <=DDR_SIZE_MAX ) { //should be less than 4G
+		snprintf( ddr_size_info, 8, "%dGbit", ddr_size );
+	} else {
+		snprintf( ddr_size_info , 8 , "UNKNOWN" );
+	}
+
+	switch(ddr_type)
+	{
+		case DDR_TYPE_LPDDR1:
+			ddr_type_info = "LPDDR1";
+			break;
+		case DDR_TYPE_LPDDR2:
+			ddr_type_info = "LPDDR2";
+			break;
+		case DDR_TYPE_LPDDR3:
+			ddr_type_info = "LPDDR3";
+			break;
+		default:
+			ddr_type_info = "UNKNOWN";
+			break;
+	}
+
+	snprintf(ddr_info_all,APP_INFO_VALUE_LENTH-1, "%s %s %s", ddr_info,ddr_size_info,ddr_type_info );
+
+	/* Print the DDR Name in the kmsg log */
+	pr_info("DDR VENDOR is : %s", ddr_info_all);
+
+	return;
+}
+
+void app_info_print_smem(char *ddr_info_all)
+{
+	unsigned int ddr_vendor_id = 0;
+	/* read share memory and get DDR ID */
+	smem_exten_paramater *smem = NULL;
+	unsigned int ddr_size0,ddr_size1;
+	unsigned int ddr_size=0;
+	unsigned int ddr_type;
+
+	smem = smem_alloc(SMEM_ID_VENDOR1, sizeof(smem_exten_paramater),
+							0, SMEM_ANY_HOST_FLAG);
+	if(NULL == smem)
+	{
+		pr_err("%s: SMEM Error, READING DDR VENDOR NAME", __func__);
+		return;
+	}
+
+	ddr_vendor_id = smem->lpddrID;
+	ddr_vendor_id &= 0xff;
+	ddr_size1 = ( smem->lpddrID >> 8 ) & 0xFF;
+	ddr_size0 = ( smem->lpddrID >> 16 ) & 0xFF;
+
+	if(ddr_size0<= DDR_SIZE_ORDER_MAX && ddr_size0>= DDR_SIZE_ORDER_MIN )
+		ddr_size = 0x1<<(ddr_size0-30);
+
+	if(ddr_size1<= DDR_SIZE_ORDER_MAX && ddr_size0>= DDR_SIZE_ORDER_MIN )
+		ddr_size += 0x1<<(ddr_size1-30);
+
+	ddr_type = ( smem->lpddrID >> 24 ) & 0xFF;
+
+	pr_info("%s: ddr_info %x,%d,%d,%d", __func__, smem->lpddrID,ddr_size1,ddr_size0, ddr_size );
+
+	export_ddr_info(ddr_vendor_id, ddr_size, ddr_type, ddr_info_all );
+
+	return;
+}
+#endif
 
 /*
  * Handle the detection and initialisation of a card.
@@ -1514,6 +1663,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	u32 cid[4];
 	u32 rocr;
 	u8 *ext_csd = NULL;
+
+#if defined(CONFIG_GET_HARDWARE_INFO)
+	char ddr_info_all[APP_INFO_VALUE_LENTH];
+#endif
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
@@ -1662,6 +1815,27 @@ reinit:
 					mmc_hostname(host), __func__, err);
 			goto free_card;
 		}
+
+#if defined(CONFIG_GET_HARDWARE_INFO)
+		if(host->index==0) {
+			app_info_print_smem(ddr_info_all);
+			pr_info("%s:manifacture id is 0x%x\n",mmc_hostname(card->host),card->cid.manfid);
+			if(MCP_HYNIX_MANIFACTURE_ID==card->cid.manfid) {
+				snprintf(tmp_flash_name, 100, "EMMC: HYNIX %uMB DDR: %s", card->ext_csd.sectors / 2048, ddr_info_all);
+			} else if(MCP_SAMSUNG_MANIFACTURE_ID==card->cid.manfid) {
+				snprintf(tmp_flash_name, 100, "EMMC: SAMSUNG %uMB DDR: %s", card->ext_csd.sectors / 2048, ddr_info_all);
+			} else if(MCP_MICRON_MANIFACTURE_ID==card->cid.manfid) {
+				snprintf(tmp_flash_name, 100, "EMMC: MICRON %uMB DDR: %s", card->ext_csd.sectors / 2048, ddr_info_all);
+			} else if(MCP_KINGSTON_MANIFACTURE_ID==card->cid.manfid) {
+				snprintf(tmp_flash_name, 100, "EMMC: KINGSTON %uMB DDR: %s", card->ext_csd.sectors / 2048, ddr_info_all);
+			} else if(MCP_TOSHIBA_MANIFACTURE_ID==card->cid.manfid) {
+				snprintf(tmp_flash_name, 100, "EMMC: TOSHIBA %uMB DDR: %s", card->ext_csd.sectors / 2048, ddr_info_all);
+			} else {
+				snprintf(tmp_flash_name, 100,"EMMC: %s %u MB DDR: %s" ,card->cid.prod_name, card->ext_csd.sectors / 2048, ddr_info_all);
+			}
+			register_hardware_info(EMCP, tmp_flash_name);
+		}
+#endif
 
 		/* If doing byte addressing, check if required to do sector
 		 * addressing.  Handle the case of <2GB cards needing sector

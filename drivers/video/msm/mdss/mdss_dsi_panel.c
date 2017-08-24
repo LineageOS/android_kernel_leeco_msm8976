@@ -29,6 +29,11 @@
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
+#ifdef CONFIG_GET_HARDWARE_INFO
+#include <asm/hardware_info.h>
+char tmp_panel_name[100];
+#endif
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #define CEIL(x, y)	(((x) + ((y)-1)) / (y))
@@ -2240,6 +2245,12 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+
+#if defined(CONFIG_GET_HARDWARE_INFO)
+	strlcpy(tmp_panel_name, panel_name,100);
+	register_hardware_info(LCM, tmp_panel_name);
+#endif
+
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
