@@ -326,6 +326,7 @@ struct synaptics_rmi4_data {
 	struct delayed_work rb_work;
 	struct workqueue_struct *rb_workqueue;
 #ifdef CONFIG_FB
+	struct work_struct fb_notify_work;
 	struct notifier_block fb_notifier;
 	struct work_struct reset_work;
 	struct workqueue_struct *reset_workqueue;
@@ -455,22 +456,6 @@ static inline int synaptics_rmi4_reg_write(
 		unsigned short len)
 {
 	return rmi4_data->hw_if->bus_access->write(rmi4_data, addr, data, len);
-}
-
-static inline ssize_t synaptics_rmi4_show_error(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	dev_warn(dev, "%s Attempted to read from write-only attribute %s\n",
-			__func__, attr->attr.name);
-	return -EPERM;
-}
-
-static inline ssize_t synaptics_rmi4_store_error(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	dev_warn(dev, "%s Attempted to write to read-only attribute %s\n",
-			__func__, attr->attr.name);
-	return -EPERM;
 }
 
 static inline int secure_memcpy(unsigned char *dest, unsigned int dest_size,

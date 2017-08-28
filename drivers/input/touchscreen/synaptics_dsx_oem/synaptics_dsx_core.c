@@ -123,12 +123,12 @@ static char *synaptics_sysfs_pathname(struct sysfs_dirent *sd, char *path);
 static int synaptics_rmi4_check_status(struct synaptics_rmi4_data *rmi4_data,
 		bool *was_in_bl_mode);
 static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
-static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
 static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 		bool rebuild);
 static void synaptics_key_ctrl(struct synaptics_rmi4_data *rmi4_data, bool enable);
 
 #ifdef CONFIG_FB
+static void synaptics_rmi4_fb_notify_resume_work(struct work_struct *work);
 static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 		unsigned long event, void *data);
 #endif
@@ -605,23 +605,23 @@ static struct synaptics_rmi4_exp_fn_data exp_data;
 static struct synaptics_dsx_button_map *vir_button_map;
 
 static struct device_attribute attrs[] = {
-	__ATTR(reset, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(reset, S_IWUSR | S_IWGRP,
+			NULL,
 			synaptics_rmi4_f01_reset_store),
 	__ATTR(productinfo, S_IRUGO,
 			synaptics_rmi4_f01_productinfo_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(buildid, S_IRUGO,
 			synaptics_rmi4_f01_buildid_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(flashprog, S_IRUGO,
 			synaptics_rmi4_f01_flashprog_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(0dbutton, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_0dbutton_show,
 			synaptics_rmi4_0dbutton_store),
-	__ATTR(suspend, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(suspend, S_IWUSR | S_IWGRP,
+			NULL,
 			synaptics_rmi4_suspend_store),
 	__ATTR(wake_gesture, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_wake_gesture_show,
@@ -1526,12 +1526,6 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data,
 	}
 	if (status.unconfigured && !status.flash_prog) {
 		pr_notice("%s: spontaneous reset detected\n", __func__);
-		retval = synaptics_rmi4_reinit_device(rmi4_data);
-		if (retval < 0) {
-			dev_err(rmi4_data->pdev->dev.parent,
-					"%s: Failed to reinit device\n",
-					__func__);
-		}
 	}
 
 	if (!report)
@@ -3542,49 +3536,6 @@ exit:
 	return;
 }
 
-static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data)
-{
-	int retval;
-	struct synaptics_rmi4_fn *fhandler;
-	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
-	struct synaptics_rmi4_device_info *rmi;
-
-	rmi = &(rmi4_data->rmi4_mod_info);
-
-	mutex_lock(&(rmi4_data->rmi4_reset_mutex));
-
-	synaptics_rmi4_free_fingers(rmi4_data);
-
-	if (!list_empty(&rmi->support_fn_list)) {
-		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
-			if (fhandler->fn_number == SYNAPTICS_RMI4_F12) {
-				synaptics_rmi4_f12_set_enables(rmi4_data, 0);
-				break;
-			}
-		}
-	}
-
-	retval = synaptics_rmi4_int_enable(rmi4_data, true);
-	if (retval < 0)
-		goto exit;
-
-	mutex_lock(&exp_data.mutex);
-	if (!list_empty(&exp_data.list)) {
-		list_for_each_entry(exp_fhandler, &exp_data.list, link)
-			if (exp_fhandler->exp_fn->reinit != NULL)
-				exp_fhandler->exp_fn->reinit(rmi4_data);
-	}
-	mutex_unlock(&exp_data.mutex);
-
-	synaptics_rmi4_set_configured(rmi4_data);
-
-	retval = 0;
-
-exit:
-	mutex_unlock(&(rmi4_data->rmi4_reset_mutex));
-	return retval;
-}
-
 static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 		bool rebuild)
 {
@@ -4156,6 +4107,8 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_FB
+	INIT_WORK(&rmi4_data->fb_notify_work,
+		  synaptics_rmi4_fb_notify_resume_work);
 	rmi4_data->fb_notifier.notifier_call = synaptics_rmi4_fb_notifier_cb;
 	retval = fb_register_client(&rmi4_data->fb_notifier);
 	if (retval < 0) {
@@ -4521,11 +4474,18 @@ void synaptics_rmi4_wakeup_gesture(struct synaptics_rmi4_data *rmi4_data,
 	return;
 }
 #ifdef CONFIG_FB
+static void synaptics_rmi4_fb_notify_resume_work(struct work_struct *work)
+{
+	struct synaptics_rmi4_data *rmi4_data =
+		container_of(work, struct synaptics_rmi4_data, fb_notify_work);
+	synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
+	rmi4_data->fb_ready = true;
+}
+
 static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 		unsigned long event, void *data)
 {
 	int *transition;
-	unsigned long flags;
 	struct fb_event *evdata = data;
 	struct synaptics_rmi4_data *rmi4_data =
 			container_of(self, struct synaptics_rmi4_data,
@@ -4533,24 +4493,54 @@ static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 
 	if (evdata && evdata->data && rmi4_data)
 	{
-		if (event == FB_EVENT_BLANK)
+		if (rmi4_data->hw_if->board_data->resume_in_workqueue) 
 		{
-			transition = evdata->data;
-		#if 0
-			if (*transition == FB_BLANK_POWERDOWN) {
-				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
-				rmi4_data->fb_ready = false;
-			} else if (*transition == FB_BLANK_UNBLANK) {
-				synaptics_rmi4_resume(&rmi4_data->pdev->dev);
-				rmi4_data->fb_ready = true;
+			if (event == FB_EVENT_BLANK)
+			{
+				transition = evdata->data;
+			//#if 0
+				if (*transition == FB_BLANK_POWERDOWN) 
+				{
+					flush_work(
+						&(rmi4_data->fb_notify_work));
+					synaptics_rmi4_suspend(
+						&rmi4_data->pdev->dev);
+					rmi4_data->fb_ready = false;
+				}
+				else if (*transition == FB_BLANK_UNBLANK) 
+				{
+					schedule_work(
+						&(rmi4_data->fb_notify_work));
+				}
 			}
-		#else
-			rmi4_data->pm_status=*transition;
-			spin_lock_irqsave(&rmi4_data->lock, flags);
-			queue_delayed_work(rmi4_data->synaptics_pm_wq, &rmi4_data->synaptics_pm_work, 10);
-			spin_unlock_irqrestore(&rmi4_data->lock, flags);
-		#endif
 		}
+		else
+		{
+			if (event == FB_EVENT_BLANK)
+			{
+				transition = evdata->data;
+				if (*transition == FB_BLANK_POWERDOWN) 
+				{
+					synaptics_rmi4_suspend(
+						&rmi4_data->pdev->dev);
+					rmi4_data->fb_ready = false;
+				}
+				else if (*transition == FB_BLANK_UNBLANK) 
+				{
+					synaptics_rmi4_resume(
+						&rmi4_data->pdev->dev);
+					rmi4_data->fb_ready = true;
+				}
+			}
+		}
+			/* #else
+				rmi4_data->pm_status=*transition;
+				spin_lock_irqsave(&rmi4_data->lock, flags);
+				queue_delayed_work(rmi4_data->synaptics_pm_wq, &rmi4_data->synaptics_pm_work, 10);
+				spin_unlock_irqrestore(&rmi4_data->lock, flags);
+			#endif */
+			//}
+		//}
 	}
 	return 0;
 }
