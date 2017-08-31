@@ -4229,10 +4229,10 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	synaptics_rmi4_proc_init(rmi4_data->input_dev->dev.kobj.sd);
 
 	rmi4_data->rb_workqueue =
-			create_singlethread_workqueue("dsx_rebuild_workqueue");
+			alloc_ordered_workqueue("dsx_rebuild_workqueue", WQ_HIGHPRI);
 	INIT_DELAYED_WORK(&rmi4_data->rb_work, synaptics_rmi4_rebuild_work);
 
-	exp_data.workqueue = create_singlethread_workqueue("dsx_exp_workqueue");
+	exp_data.workqueue = alloc_ordered_workqueue("dsx_exp_workqueue", WQ_HIGHPRI);
 	INIT_DELAYED_WORK(&exp_data.work, synaptics_rmi4_exp_fn_work);
 	exp_data.rmi4_data = rmi4_data;
 	exp_data.queue_work = true;
@@ -4240,7 +4240,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 			&exp_data.work,
 			0);
 	INIT_DELAYED_WORK(&rmi4_data->synaptics_pm_work, synaptics_ts_pm_worker);
-	rmi4_data->synaptics_pm_wq = create_singlethread_workqueue("synaptics_pm_wq");
+	rmi4_data->synaptics_pm_wq = alloc_ordered_workqueue("synaptics_pm_wq", WQ_HIGHPRI);
 	if (!rmi4_data->synaptics_pm_wq) {
 	dev_err(&pdev->dev, "failed to create synaptics_pm_wq");
 	goto free_queue;
@@ -4248,7 +4248,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 
 #ifdef FB_READY_RESET
 	rmi4_data->reset_workqueue =
-			create_singlethread_workqueue("dsx_reset_workqueue");
+			alloc_ordered_workqueue("dsx_reset_workqueue"), WQ_HIGHPRI;
 	INIT_WORK(&rmi4_data->reset_work, synaptics_rmi4_reset_work);
 	queue_work(rmi4_data->reset_workqueue, &rmi4_data->reset_work);
 #endif
