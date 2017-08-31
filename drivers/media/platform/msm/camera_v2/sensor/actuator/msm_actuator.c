@@ -1590,6 +1590,7 @@ static long msm_actuator_subdev_do_ioctl(
 
 	switch (cmd) {
 	case VIDIOC_MSM_ACTUATOR_CFG32:
+		cmd = VIDIOC_MSM_ACTUATOR_CFG;
 		switch (u32->cfgtype) {
 		case CFG_SET_ACTUATOR_INFO:
 			actuator_data.cfgtype = u32->cfgtype;
@@ -1707,14 +1708,11 @@ static long msm_actuator_subdev_do_ioctl(
 		}
 	}
 
-	if (cmd == VIDIOC_MSM_ACTUATOR_CFG32)
-		rc = msm_actuator_subdev_ioctl(sd, VIDIOC_MSM_ACTUATOR_CFG, parg);
-	else
-		rc = msm_actuator_subdev_ioctl(sd, cmd, parg);
+	rc = msm_actuator_subdev_ioctl(sd, cmd, parg);
 
 	switch (cmd) {
 
-	case VIDIOC_MSM_ACTUATOR_CFG32:
+	case VIDIOC_MSM_ACTUATOR_CFG:
 
 		switch (u32->cfgtype) {
 
