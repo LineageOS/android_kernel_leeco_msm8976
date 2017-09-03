@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1334eac7_7ecf9983",
+        "filename": "drivers/input/touchscreen/synaptics_dsx_oem/synaptics_dsx_core.c",
+        "patchSetId": 4
+      },
+      "lineNbr": 4551,
+      "author": {
+        "id": 523
+      },
+      "writtenOn": "2017-09-03T10:15:11Z",
+      "side": 1,
+      "message": "delete",
+      "range": {
+        "startLine": 4551,
+        "startChar": 3,
+        "endLine": 4551,
+        "endChar": 6
+      },
+      "revId": "d0806eabcd60da11ddfcc8a17771788920af25f7",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "c432067f_77eabec6",
+        "filename": "drivers/input/touchscreen/synaptics_dsx_oem/synaptics_dsx_core.c",
+        "patchSetId": 4
+      },
+      "lineNbr": 4586,
+      "author": {
+        "id": 523
+      },
+      "writtenOn": "2017-09-03T10:15:11Z",
+      "side": 1,
+      "message": "delete that whole block",
+      "range": {
+        "startLine": 4586,
+        "startChar": 7,
+        "endLine": 4586,
+        "endChar": 11
+      },
+      "revId": "d0806eabcd60da11ddfcc8a17771788920af25f7",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "d88b6b29_563bea2d",
+        "filename": "drivers/input/touchscreen/synaptics_dsx_oem/synaptics_dsx_i2c.c",
+        "patchSetId": 4
+      },
+      "lineNbr": 88,
+      "author": {
+        "id": 523
+      },
+      "writtenOn": "2017-09-03T10:15:11Z",
+      "side": 1,
+      "message": "whitespace errors",
+      "range": {
+        "startLine": 88,
+        "startChar": 0,
+        "endLine": 88,
+        "endChar": 4
+      },
+      "revId": "d0806eabcd60da11ddfcc8a17771788920af25f7",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
