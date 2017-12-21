@@ -13,6 +13,7 @@
 #include <crypto/hash.h>
 
 #define DM_VERITY_IO_VEC_INLINE		16
+#define DM_VERITY_WAIT_DEV_TIMEOUT_MS	(2000)
 #define DM_VERITY_MAX_LEVELS		63
 
 
