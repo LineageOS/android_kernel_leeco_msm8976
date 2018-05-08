@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,6 @@
 #include <media/msm_cam_sensor.h>
 #include <soc/qcom/camera2.h>
 #include "msm_sd.h"
-#include "cam_soc_api.h"
 
 #define NUM_MASTERS 2
 #define NUM_QUEUES 2
@@ -43,6 +42,7 @@ enum cci_i2c_sync {
 	MSM_SYNC_DISABLE,
 	MSM_SYNC_ENABLE,
 };
+
 
 enum cci_i2c_queue_t {
 	QUEUE_0,
@@ -90,7 +90,7 @@ struct msm_camera_cci_gpio_cfg {
 };
 
 struct msm_camera_cci_i2c_read_cfg {
-	uint32_t addr;
+	uint16_t addr;
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	uint8_t *data;
 	uint16_t num_byte;
@@ -150,17 +150,19 @@ struct cci_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
 	struct v4l2_subdev subdev;
+	struct resource *mem;
 	struct resource *irq;
+	struct resource *io;
 	void __iomem *base;
 
 	uint32_t hw_version;
 	uint8_t ref_count;
 	enum msm_cci_state_t cci_state;
-	size_t num_clk;
-	size_t num_clk_cases;
-	struct clk **cci_clk;
-	uint32_t **cci_clk_rates;
-	struct msm_cam_clk_info *cci_clk_info;
+	uint32_t num_clk;
+	struct mutex mutex;
+	uint32_t num_clk_cases;
+
+	struct clk *cci_clk[CCI_NUM_CLK_MAX];
 	struct msm_camera_cci_i2c_queue_info
 		cci_i2c_queue_info[NUM_MASTERS][NUM_QUEUES];
 	struct msm_camera_cci_master_info cci_master_info[NUM_MASTERS];
@@ -170,11 +172,9 @@ struct cci_device {
 	uint8_t cci_gpio_tbl_size;
 	struct msm_pinctrl_info cci_pinctrl;
 	uint8_t cci_pinctrl_status;
+	struct regulator *reg_ptr;
 	uint32_t cycles_per_us;
 	uint32_t cci_clk_src;
-	struct camera_vreg_t *cci_vreg;
-	struct regulator *cci_reg_ptr[MAX_REGULATOR];
-	int32_t regulator_count;
 	uint8_t payload_size;
 	uint8_t support_seq_write;
 	struct workqueue_struct *write_wq[MASTER_MAX];

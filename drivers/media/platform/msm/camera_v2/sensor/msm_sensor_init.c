@@ -49,10 +49,8 @@ static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
 	}
 	rc = wait_event_timeout(s_init->state_wait,
 		(s_init->module_init_status == 1), msecs_to_jiffies(tm));
-	if (rc == 0) {
+	if (rc == 0)
 		pr_err("%s:%d wait timeout\n", __func__, __LINE__);
-		rc = -1;
-	}
 
 	return rc;
 }
@@ -79,7 +77,7 @@ static int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init,
 			cfg->entity_name);
 		mutex_unlock(&s_init->imutex);
 		if (rc < 0)
-			pr_err("%s failed (non-fatal) rc %d", __func__, rc);
+			pr_err("failed: msm_sensor_driver_probe rc %d", rc);
 		break;
 
 	case CFG_SINIT_PROBE_DONE:
@@ -88,7 +86,7 @@ static int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init,
 		break;
 
 	case CFG_SINIT_PROBE_WAIT_DONE:
-		rc = msm_sensor_wait_for_probe_done(s_init);
+		msm_sensor_wait_for_probe_done(s_init);
 		break;
 
 	default:
@@ -144,7 +142,7 @@ static long msm_sensor_init_subdev_do_ioctl(
 		cmd = VIDIOC_MSM_SENSOR_INIT_CFG;
 		rc = msm_sensor_init_subdev_ioctl(sd, cmd, &sensor_init_data);
 		if (rc < 0) {
-			pr_err("%s:%d VIDIOC_MSM_SENSOR_INIT_CFG failed (non-fatal)",
+			pr_err("%s:%d VIDIOC_MSM_SENSOR_INIT_CFG failed",
 				__func__, __LINE__);
 			return rc;
 		}
@@ -169,8 +167,10 @@ static int __init msm_sensor_init_module(void)
 	int ret = 0;
 	/* Allocate memory for msm_sensor_init control structure */
 	s_init = kzalloc(sizeof(struct msm_sensor_init_t), GFP_KERNEL);
-	if (!s_init)
+	if (!s_init) {
+		pr_err("failed: no memory s_init %pK", NULL);
 		return -ENOMEM;
+	}
 
 	CDBG("MSM_SENSOR_INIT_MODULE %pK", NULL);
 
@@ -194,7 +194,8 @@ static int __init msm_sensor_init_module(void)
 		CDBG("%s: msm_sd_register error = %d\n", __func__, ret);
 		goto error;
 	}
-	msm_cam_copy_v4l2_subdev_fops(&msm_sensor_init_v4l2_subdev_fops);
+
+	msm_sensor_init_v4l2_subdev_fops = v4l2_subdev_fops;
 #ifdef CONFIG_COMPAT
 	msm_sensor_init_v4l2_subdev_fops.compat_ioctl32 =
 		msm_sensor_init_subdev_fops_ioctl;
