@@ -136,4 +136,8 @@ source "drivers/staging/netlogic/Kconfig"
 
 source "drivers/staging/dwc2/Kconfig"
 
+source "drivers/staging/prima/Kconfig"
+
+source "drivers/staging/product_config/Kconfig"
+
 endif # STAGING
