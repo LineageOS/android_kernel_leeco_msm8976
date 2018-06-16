@@ -953,7 +953,7 @@ static long snd_rawmidi_kernel_read1(struct snd_rawmidi_substream *substream,
 				     unsigned char __user *userbuf,
 				     unsigned char *kernelbuf, long count)
 {
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 	long result = 0, count1;
 	struct snd_rawmidi_runtime *runtime = substream->runtime;
 	unsigned long appl_ptr;
