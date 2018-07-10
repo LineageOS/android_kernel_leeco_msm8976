@@ -385,10 +385,10 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, int cmd, u32 param)
 			if (DWC3_DGCMD_STATUS(reg)) {
 				ret = -EINVAL;
 			        break;
+			}
+                	ret = 0;
+			break;
 		}
-                ret = 0;
-		break;
-	}
 
 		/*
 		 * We can't sleep here, because it's also called from
@@ -428,7 +428,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		if (!(reg & DWC3_DEPCMD_CMDACT)) {
 			dev_vdbg(dwc->dev, "Command Complete --> %d\n",
 					DWC3_DEPCMD_STATUS(reg));
-			if (DWC3_DEPCMD_STATUS(reg))
+			if (DWC3_DEPCMD_STATUS(reg)){
                                 ret = -EINVAL;
                         	break;
 			}
@@ -2573,6 +2573,7 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 	unsigned int		slot;
 	unsigned int		i;
 	unsigned int		trb_len;
+	int			count = 0;
 	int			ret;
 
 	do {
@@ -2601,6 +2602,8 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 				slot++;
 			slot %= DWC3_TRB_NUM;
 			trb = &dep->trb_pool[slot];
+			count += trb->size & DWC3_TRB_SIZE_MASK;
+
 
 			if (req->request.num_mapped_sgs)
 				trb_len = sg_dma_len(&req->request.sg[i]);
@@ -2624,6 +2627,14 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 					(trb->ctrl & DWC3_TRB_CTRL_IOC))
 				ret = 1;
 		}
+		/*
+		 * We assume here we will always receive the entire data block
+		 * which we should receive. Meaning, if we program RX to
+		 * receive 4K but we receive only 2K, we assume that's all we
+		 * should receive and we simply bounce the request back to the
+		 * gadget driver for further processing.
+		 */
+		req->request.actual += req->request.length - count;
 		dwc3_gadget_giveback(dep, req, status);
 
 		/* EP possibly disabled during giveback? */
