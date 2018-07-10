@@ -477,6 +477,13 @@ advance:
 	if (cdc_ncm_setup(ctx))
 		goto error2;
 
+	/* Some firmwares need a pause here or they will silently fail
+	 * to set up the interface properly.  This value was decided
+	 * empirically on a Sierra Wireless MC7455 running 02.08.02.00
+	 * firmware.
+	 */
+	usleep_range(10000, 20000);
+
 	/* configure data interface */
 	temp = usb_set_interface(dev->udev, iface_no, data_altsetting);
 	if (temp)
@@ -603,7 +610,9 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
 	if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
 		return -ENODEV;
 
-	return cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM);
+	/* NCM data altsetting is always 1 */
+	return cdc_ncm_bind_common(dev, intf, 1);
+
 }
 
 static void cdc_ncm_align_tail(struct sk_buff *skb, size_t modulus, size_t remainder, size_t max)
@@ -1150,7 +1159,11 @@ static void cdc_ncm_disconnect(struct usb_interface *intf)
 static const struct driver_info cdc_ncm_info = {
 	.description = "CDC NCM",
 	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
+<<<<<<< HEAD
                         | FLAG_LINK_INTR,
+=======
+			| FLAG_LINK_INTR,
+>>>>>>> v3.10.103
 	.bind = cdc_ncm_bind,
 	.unbind = cdc_ncm_unbind,
 	.check_connect = cdc_ncm_check_connect,
