@@ -3270,7 +3270,7 @@ static void addrconf_rs_timer(unsigned long data)
 	if (idev->if_flags & IF_RA_RCVD)
 		goto out;
 
-	if (ifp->probes++ < idev->cnf.rtr_solicits || idev->cnf.rtr_solicits < 0) {
+	if (idev->rs_probes++ < idev->cnf.rtr_solicits || idev->cnf.rtr_solicits < 0) {
 		if (!__ipv6_get_lladdr(idev, &lladdr, IFA_F_TENTATIVE))
 			ndisc_send_rs(idev->dev, &lladdr,
 				      &in6addr_linklocal_allrouters);
