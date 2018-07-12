@@ -77,6 +77,7 @@
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8950_l6>;
+		qcom,gdscr-vdd-supply = <&stub_camss_top_gdscr>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi0_ahb_clk>,
@@ -101,6 +102,7 @@
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8950_l6>;
+		qcom,gdscr-vdd-supply = <&stub_camss_top_gdscr>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi1_ahb_clk>,
@@ -125,6 +127,7 @@
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8950_l6>;
+		qcom,gdscr-vdd-supply = <&stub_camss_top_gdscr>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi2_ahb_clk>,
@@ -396,6 +399,7 @@
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
+		qcom,gdscr-vdd-supply = <&stub_camss_top_gdscr>;
 		clocks = <&clock_gcc clk_camss_top_ahb_clk_src>,
 			<&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_cci_clk_src>,
