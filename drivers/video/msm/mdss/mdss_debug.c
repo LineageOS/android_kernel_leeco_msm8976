@@ -40,6 +40,7 @@
 #define PANEL_DATA_NODE_LEN 80
 
 static DEFINE_MUTEX(mdss_debug_lock);
+
 /* Hex number + whitespace */
 #define NEXT_VALUE_OFFSET 3
 
@@ -1040,10 +1041,10 @@ static ssize_t mdss_debug_perf_bw_limit_read(struct file *file,
 		temp_settings++;
 	}
 
-	if (len < 0)
+	if (len < 0 || len >= sizeof(buf))
 		return 0;
 
-	if (copy_to_user(buff, buf, len))
+	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len))
 		return -EFAULT;
 
 	*ppos += len;	/* increase offset */
@@ -1056,7 +1057,7 @@ static ssize_t mdss_debug_perf_bw_limit_write(struct file *file,
 {
 	struct mdss_data_type *mdata = file->private_data;
 	char buf[32];
-	u32 mode, val, cnt;
+	u32 mode = 0, val = 0, cnt;
 	struct mdss_max_bw_settings *temp_settings;
 
 	if (!mdata)
