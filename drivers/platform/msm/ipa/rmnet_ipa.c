@@ -2135,6 +2135,7 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 
 	/* Make sure that there is no Tx operation ongoing */
 	netif_tx_lock_bh(netdev);
+	netif_device_detach(netdev);
 	ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
 	netif_tx_unlock_bh(netdev);
 	IPAWANDBG("Exit\n");
@@ -2158,6 +2159,7 @@ static int rmnet_ipa_ap_resume(struct device *dev)
 
 	IPAWANDBG("Enter...\n");
 	netif_wake_queue(netdev);
+	netif_device_attach(netdev);
 	IPAWANDBG("Exit\n");
 
 	return 0;
