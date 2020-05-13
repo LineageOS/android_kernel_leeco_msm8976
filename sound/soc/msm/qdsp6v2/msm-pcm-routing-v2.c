@@ -1633,7 +1633,11 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_LEECO
+static const char *const ec_ref_rx[] = { "None", "SLIM_RX",
+#else
 static const char *const ec_ref_rx[] = { "None", "SLIM_RX", "I2S_RX",
+#endif
 	"PRI_MI2S_TX", "SEC_MI2S_TX",
 	"TERT_MI2S_TX", "QUAT_MI2S_TX", "SEC_I2S_RX", "PROXY_RX",
 #ifdef CONFIG_SND_SOC_LEECO
@@ -1642,11 +1646,7 @@ static const char *const ec_ref_rx[] = { "None", "SLIM_RX", "I2S_RX",
 	"SLIM_5_RX", "SLIM_1_TX"};
 #endif
 static const struct soc_enum msm_route_ec_ref_rx_enum[] = {
-#ifdef CONFIG_SND_SOC_LEECO
-	SOC_ENUM_SINGLE_EXT(12, ec_ref_rx),
-#else
 	SOC_ENUM_SINGLE_EXT(11, ec_ref_rx),
-#endif
 };
 
 static const struct snd_kcontrol_new ext_ec_ref_mux_ul1 =
